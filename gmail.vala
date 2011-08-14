@@ -6,26 +6,29 @@ namespace GmailFeed {
 
 	public class Feed : Object {
 		public signal void new_message(GMessage msg);
-		public signal void message_read(string id);
 		public signal void message_starred(string id);
 		public signal void message_unstarred(string id);
 		public signal void message_important(string id);
 		public signal void message_unimportant(string id);
-		public signal void message_archived(string id);
-		public signal void message_trashed(string id);
-		public signal void message_spammed(string id);
+		public signal void message_removed(string id);
+		public virtual signal void message_read(string id) {
+			message_removed(id);
+		}
+		public virtual signal void message_archived(string id) {
+			message_removed(id);
+		}
+		public virtual signal void message_trashed(string id) {
+			message_removed(id);
+		}
+		public virtual signal void message_spammed(string id) {
+			message_removed(id);
+		}
 
 		private Session session;
 		private CookieJar cookiejar;
 		private Gee.Map<string, GMessage> messages;
 		private Gee.List<GMessage> list;
 		private string gmail_at;
-
-		public Gee.List<GMessage> items {
-			owned get {
-				return list.read_only_view;
-			}
-		}
 
 		public int count {
 			get {
@@ -229,6 +232,14 @@ namespace GmailFeed {
 			}
 		}
 
+		public Gee.List<GMessage> get_message_list() {
+			var list = new ArrayList<GMessage>();
+			foreach(var m in messages.values) {
+				list.add(new GMessage.copy(m));
+			}
+			return list;
+		}
+
 		public string to_string() {
 			var sb = new StringBuilder();
 			sb.append("Messages: %d\n\n".printf(messages.size));
@@ -278,6 +289,18 @@ namespace GmailFeed {
 			this._read = false;
 			this._starred = false;
 			this._important = false;
+		}
+
+		public GMessage.copy(GMessage other) {
+			this.author = other.author;
+			this.subject = other.subject;
+			this.summary = other.summary;
+			this.id = other.id;
+			this.time = time;
+
+			this._read = other._read;
+			this._starred = other._starred;
+			this._important = other._important;
 		}
 
 		public string to_string() {
@@ -356,24 +379,42 @@ namespace GmailFeed {
 			return;
 		}
 
+		feed.update();
+
+		var items = new ArrayList<GMessage>();
+
+		items.add_all(feed.get_message_list());
+
 		feed.new_message.connect((m) => {
 			stdout.printf("Message Added: %s\n", m.id);
+			items.add(new GMessage.copy(m));
 		});
 
-		feed.message_read.connect((mid) => {
-			stdout.printf("Message Read: %s\n", mid);
+		feed.message_removed.connect((mid) => {
+			stdout.printf("Message Removed: %s\n", mid);
+			for(int i = 0; i < items.size; i++) {
+				if(items[i].id == mid) {
+					items.remove_at(i);
+					break;
+				}
+			}
 		});
-
-		var items = feed.items;
 
 		do {
 			feed.update();
-			stdout.printf("%sType end to exit:",feed.to_string());
+			items.sort((a,b) => {
+				GMessage aa = a as GMessage;
+				GMessage bb = b as GMessage;
+				return aa.compare(bb);
+			});
 			foreach(var m in items) {
-				feed.toggle_important(m.id);
+				stdout.printf("%s\n\n", m.to_string());
 			}
+			stdout.printf("Type end to exit:");
+
 		} while(stdin.read_line() != "end");
 
 
 	}
+
 }
