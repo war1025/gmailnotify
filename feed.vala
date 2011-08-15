@@ -23,6 +23,8 @@ namespace GmailFeed {
 		public virtual signal void message_spammed(string id) {
 			message_removed(id);
 		}
+		public signal void connection_error();
+		public signal void login_success();
 
 		private Session session;
 		private CookieJar cookiejar;
@@ -37,7 +39,7 @@ namespace GmailFeed {
 		}
 
 		public Feed() {
-			session = new SessionAsync();
+			session = new SessionSync();
 			cookiejar = new CookieJar();
 			session.add_feature = cookiejar;
 
@@ -80,15 +82,18 @@ namespace GmailFeed {
 				}
 			}
 
+			if(gmail_at != "") {
+				login_success();
+			} else {
+				connection_error();
+			}
 			return gmail_at != "";
 		}
 
 		public void update() {
 			Gee.Map<string, GMessage> messages2 = new HashMap<string, GMessage>();
-
 			var message = new Message("GET", "https://mail.google.com/mail/feed/atom");
 			session.send_message(message);
-
 			var body = (string) message.response_body.data;
 
 			var messes = body.split("<entry>");
@@ -311,6 +316,10 @@ namespace GmailFeed {
 			sb.append(this.subject);
 			sb.append("\nSummary: ");
 			sb.append(this.summary);
+			sb.append("\nStarred: ");
+			sb.append(this.starred ? "Yes" : "No");
+			sb.append("\nImportant: ");
+			sb.append(this.important ? "Yes" : "No");
 			sb.append("\nID: ");
 			sb.append(this.id);
 			return sb.str;
