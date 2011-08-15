@@ -11,7 +11,7 @@ namespace GmailFeed {
 		TRASH,
 		UPDATE,
 		LOGIN,
-		TYPE_COUNT
+		QUIT
 	}
 
 	internal class FeedAction : GLib.Object {
@@ -69,8 +69,14 @@ namespace GmailFeed {
 						LoginAction la = data as LoginAction;
 						feed.login(() => {return {la.id, la.pass};});
 						break;
+					case FeedActionType.QUIT : return null;
 				}
 			}
+		}
+
+		~FeedController() {
+			var act = new FeedAction();
+			act.action = FeedActionType.QUIT;
 		}
 
 		private void connect_signals() {
