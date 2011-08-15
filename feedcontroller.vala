@@ -1,4 +1,4 @@
-using Gee;
+
 
 namespace GmailFeed {
 
@@ -82,7 +82,7 @@ namespace GmailFeed {
 		private void connect_signals() {
 			this.feed.new_message.connect((m) => {
 				Idle.add(() => {
-					this.new_message(m);
+					this.new_message(new GMessage.copy(m));
 					return false;
 				});
 			});
