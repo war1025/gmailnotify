@@ -74,7 +74,7 @@ namespace GmailFeed {
 			}
 		}
 
-		~FeedController() {
+		public void shutdown() {
 			var act = new FeedAction();
 			act.action = FeedActionType.QUIT;
 		}
