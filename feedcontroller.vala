@@ -37,7 +37,7 @@ namespace GmailFeed {
 		public signal void message_trashed(string id);
 		public signal void message_spammed(string id);
 		public signal void login_success();
-		public signal void connection_error();
+		public signal void connection_error(ConnectionError code);
 
 		private Feed feed;
 		private AsyncQueue<FeedAction> queue;
@@ -157,9 +157,9 @@ namespace GmailFeed {
 				});
 			});
 
-			this.feed.connection_error.connect(() => {
+			this.feed.connection_error.connect((c) => {
 				Idle.add(() => {
-					this.connection_error();
+					this.connection_error(c);
 					return false;
 				});
 			});
@@ -253,8 +253,8 @@ namespace GmailFeed {
 				stdout.printf("Logged in\n");
 				feed.update();
 			});
-			feed.connection_error.connect(() => {
-				stdout.printf("Error Connecting\n");
+			feed.connection_error.connect((c) => {
+				stdout.printf("Error Connecting: %s\n", c.to_string());
 				stdout.printf("Hit Enter to attempt reconnecting: \n");
 				stdin.read_line();
 				feed.login(() => {return {args[1], args[3]};});

@@ -2,6 +2,13 @@ using Soup;
 using Gee;
 
 namespace GmailFeed {
+
+	public enum ConnectionError {
+		UNAUTHORIZED,
+		DISCONNECTED,
+		UNKNOWN
+	}
+
 	public delegate string[] AuthDelegate();
 
 	public class Feed : Object {
@@ -23,7 +30,7 @@ namespace GmailFeed {
 		public virtual signal void message_spammed(string id) {
 			message_removed(id);
 		}
-		public signal void connection_error();
+		public signal void connection_error(ConnectionError code);
 		public signal void login_success();
 
 		private Session session;
@@ -87,7 +94,11 @@ namespace GmailFeed {
 			if(gmail_at != "") {
 				login_success();
 			} else {
-				connection_error();
+				if(message.status_code == 200) {
+					handle_error(401);
+				} else {
+					handle_error(message.status_code);
+				}
 			}
 			return gmail_at != "";
 		}
@@ -97,7 +108,7 @@ namespace GmailFeed {
 			var message = new Message("GET", "https://mail.google.com/mail/feed/atom");
 			session.send_message(message);
 			if(message.status_code != 200) {
-				connection_error();
+				handle_error(message.status_code);
 				return;
 			}
 
@@ -179,7 +190,7 @@ namespace GmailFeed {
 				var mess = messages[idx].mark_read(gmail_at);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
-					connection_error();
+					handle_error(mess.status_code);
 				} else {
 					message_read(idx);
 					return true;
@@ -194,7 +205,7 @@ namespace GmailFeed {
 				var mess = m.toggle_important(gmail_at);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
-					connection_error();
+					handle_error(mess.status_code);
 				} else if(m.important) {
 					message_important(idx);
 					return true;
@@ -212,7 +223,7 @@ namespace GmailFeed {
 				var mess = m.toggle_starred(gmail_at);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
-					connection_error();
+					handle_error(mess.status_code);
 				} else if(m.starred) {
 					message_starred(idx);
 					return true;
@@ -229,7 +240,7 @@ namespace GmailFeed {
 				var mess = messages[idx].archive(gmail_at);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
-					connection_error();
+					handle_error(mess.status_code);
 				} else {
 					message_archived(idx);
 					return true;
@@ -243,7 +254,7 @@ namespace GmailFeed {
 				var mess = messages[idx].trash(gmail_at);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
-					connection_error();
+					handle_error(mess.status_code);
 				} else {
 					message_trashed(idx);
 					return true;
@@ -257,7 +268,7 @@ namespace GmailFeed {
 				var mess = messages[idx].spam(gmail_at);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
-					connection_error();
+					handle_error(mess.status_code);
 				} else {
 					message_spammed(idx);
 					return true;
@@ -272,6 +283,16 @@ namespace GmailFeed {
 				list.add(new GMessage.copy(m));
 			}
 			return list;
+		}
+
+		private void handle_error(uint code) {
+			if(code == 401) {
+				connection_error(ConnectionError.UNAUTHORIZED);
+			} else if(code < 100) {
+				connection_error(ConnectionError.DISCONNECTED);
+			} else {
+				connection_error(ConnectionError.UNKNOWN);
+			}
 		}
 
 		public string to_string() {
