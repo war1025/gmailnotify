@@ -108,6 +108,13 @@ namespace GmailFeed {
 				});
 			});
 
+			this.feed.message_unimportant.connect((m) => {
+				Idle.add(() => {
+					this.message_unimportant(m);
+					return false;
+				});
+			});
+
 			this.feed.message_archived.connect((m) => {
 				Idle.add(() => {
 					this.message_archived(m);
@@ -179,7 +186,7 @@ namespace GmailFeed {
 			queue.push(act);
 		}
 
-		public void toggle_unimportant(string id) {
+		public void toggle_important(string id) {
 			var act = new FeedAction();
 			act.id = id;
 			act.action = FeedActionType.IMPORTANT;
@@ -221,6 +228,26 @@ namespace GmailFeed {
 			var feed = new FeedController();
 			feed.new_message.connect((m) => {
 				stdout.printf("%s\n\n", m.to_string());
+				feed.toggle_important(m.id);
+			});
+			feed.message_important.connect((id) => {
+				stdout.printf("Message: %s important\n", id);
+				feed.toggle_important(id);
+			});
+			feed.message_unimportant.connect((id) => {
+				stdout.printf("Message: %s unimportant\n", id);
+				feed.toggle_starred(id);
+			});
+			feed.message_starred.connect((id) => {
+				stdout.printf("Message: %s starred\n", id);
+				feed.toggle_starred(id);
+			});
+			feed.message_unstarred.connect((id) => {
+				stdout.printf("Message: %s unstarred\n", id);
+				feed.mark_read(id);
+			});
+			feed.message_read.connect((id) => {
+				stdout.printf("Message: %s read\n", id);
 			});
 			feed.login_success.connect(() => {
 				stdout.printf("Logged in\n");
@@ -228,6 +255,9 @@ namespace GmailFeed {
 			});
 			feed.connection_error.connect(() => {
 				stdout.printf("Error Connecting\n");
+				stdout.printf("Hit Enter to attempt reconnecting: \n");
+				stdin.read_line();
+				feed.login(() => {return {args[1], args[3]};});
 			});
 			feed.login(() => {return {args[1], args[2]};});
 			loop.run();

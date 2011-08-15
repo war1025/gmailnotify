@@ -42,6 +42,7 @@ namespace GmailFeed {
 			session = new SessionSync();
 			cookiejar = new CookieJar();
 			session.add_feature = cookiejar;
+			session.timeout = 15;
 
 			messages = new HashMap<string, GMessage>();
 			list = new ArrayList<GMessage>();
@@ -52,6 +53,7 @@ namespace GmailFeed {
 			var message = new Message("GET", "https://www.google.com/accounts/ServiceLogin?service=mail");
 			session.send_message(message);
 
+			gmail_at = "";
 			var galx = "";
 
 			SList<Cookie> cookies = cookiejar.all_cookies();
@@ -94,6 +96,11 @@ namespace GmailFeed {
 			Gee.Map<string, GMessage> messages2 = new HashMap<string, GMessage>();
 			var message = new Message("GET", "https://mail.google.com/mail/feed/atom");
 			session.send_message(message);
+			if(message.status_code != 200) {
+				connection_error();
+				return;
+			}
+
 			var body = (string) message.response_body.data;
 
 			var messes = body.split("<entry>");
@@ -169,72 +176,94 @@ namespace GmailFeed {
 
 		public bool mark_read(string idx) {
 			if(messages.has_key(idx)) {
-				session.send_message(messages[idx].mark_read(gmail_at));
-				message_read(idx);
-				return true;
-			} else {
-				return false;
+				var mess = messages[idx].mark_read(gmail_at);
+				session.send_message(mess);
+				if(mess.status_code != 200) {
+					connection_error();
+				} else {
+					message_read(idx);
+					return true;
+				}
 			}
+			return false;
 		}
 
 		public bool toggle_important(string idx) {
 			if(messages.has_key(idx)) {
 				var m = messages[idx];
-				session.send_message(m.toggle_important(gmail_at));
-				if(m.important) {
+				var mess = m.toggle_important(gmail_at);
+				session.send_message(mess);
+				if(mess.status_code != 200) {
+					connection_error();
+				} else if(m.important) {
 					message_important(idx);
+					return true;
 				} else {
 					message_unimportant(idx);
+					return true;
 				}
-				return true;
-			} else {
-				return false;
 			}
+			return false;
 		}
 
 		public bool toggle_starred(string idx) {
 			if(messages.has_key(idx)) {
 				var m = messages[idx];
-				session.send_message(m.toggle_starred(gmail_at));
-				if(m.important) {
+				var mess = m.toggle_starred(gmail_at);
+				session.send_message(mess);
+				if(mess.status_code != 200) {
+					connection_error();
+				} else if(m.starred) {
 					message_starred(idx);
+					return true;
 				} else {
 					message_unstarred(idx);
+					return true;
 				}
-				return true;
-			} else {
-				return false;
 			}
+			return false;
 		}
 
 		public bool archive(string idx) {
 			if(messages.has_key(idx)) {
-				session.send_message(messages[idx].archive(gmail_at));
-				message_archived(idx);
-				return true;
-			} else {
-				return false;
+				var mess = messages[idx].archive(gmail_at);
+				session.send_message(mess);
+				if(mess.status_code != 200) {
+					connection_error();
+				} else {
+					message_archived(idx);
+					return true;
+				}
 			}
+			return false;
 		}
 
 		public bool trash(string idx) {
 			if(messages.has_key(idx)) {
-				session.send_message(messages[idx].trash(gmail_at));
-				message_trashed(idx);
-				return true;
-			} else {
-				return false;
+				var mess = messages[idx].trash(gmail_at);
+				session.send_message(mess);
+				if(mess.status_code != 200) {
+					connection_error();
+				} else {
+					message_trashed(idx);
+					return true;
+				}
 			}
+			return false;
 		}
 
 		public bool spam(string idx) {
 			if(messages.has_key(idx)) {
-				session.send_message(messages[idx].spam(gmail_at));
-				message_spammed(idx);
-				return true;
-			} else {
-				return false;
+				var mess = messages[idx].spam(gmail_at);
+				session.send_message(mess);
+				if(mess.status_code != 200) {
+					connection_error();
+				} else {
+					message_spammed(idx);
+					return true;
+				}
 			}
+			return false;
 		}
 
 		public Gee.List<GMessage> get_message_list() {
@@ -378,52 +407,4 @@ namespace GmailFeed {
 			return act("sp", gmail_at);
 		}
 	}
-
-	void main(string[] args) {
-
-		var feed = new Feed();
-
-		if(!feed.login(() => { return {args[1], args[2]}; })) {
-			stdout.printf("Login Failed!");
-			return;
-		}
-
-		feed.update();
-
-		var items = new ArrayList<GMessage>();
-
-		items.add_all(feed.get_message_list());
-
-		feed.new_message.connect((m) => {
-			stdout.printf("Message Added: %s\n", m.id);
-			items.add(new GMessage.copy(m));
-		});
-
-		feed.message_removed.connect((mid) => {
-			stdout.printf("Message Removed: %s\n", mid);
-			for(int i = 0; i < items.size; i++) {
-				if(items[i].id == mid) {
-					items.remove_at(i);
-					break;
-				}
-			}
-		});
-
-		do {
-			feed.update();
-			items.sort((a,b) => {
-				GMessage aa = a as GMessage;
-				GMessage bb = b as GMessage;
-				return aa.compare(bb);
-			});
-			foreach(var m in items) {
-				stdout.printf("%s\n\n", m.to_string());
-			}
-			stdout.printf("Type end to exit:");
-
-		} while(stdin.read_line() != "end");
-
-
-	}
-
 }
