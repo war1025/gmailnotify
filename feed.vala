@@ -32,11 +32,12 @@ namespace GmailFeed {
 		}
 		public signal void connection_error(ConnectionError code);
 		public signal void login_success();
+		public signal void update_complete();
 
 		private Session session;
 		private CookieJar cookiejar;
 		private Gee.Map<string, GMessage> messages;
-		private Gee.List<GMessage> list;
+		private Gee.Map<string, GMessage> messages2;
 		private string gmail_at;
 
 		public int count {
@@ -52,7 +53,7 @@ namespace GmailFeed {
 			session.timeout = 15;
 
 			messages = new HashMap<string, GMessage>();
-			list = new ArrayList<GMessage>();
+			messages2 = new HashMap<string, GMessage>();
 			gmail_at = "";
 		}
 
@@ -104,7 +105,7 @@ namespace GmailFeed {
 		}
 
 		public void update() {
-			Gee.Map<string, GMessage> messages2 = new HashMap<string, GMessage>();
+			messages2.clear();
 			var message = new Message("GET", "https://mail.google.com/mail/feed/atom");
 			session.send_message(message);
 			if(message.status_code != 200) {
@@ -174,15 +175,11 @@ namespace GmailFeed {
 				}
 			}
 
+			var temp = messages;
 			messages = messages2;
-			list.clear();
-			list.insert_all(0, messages.values);
-			list.sort((a,b) => {
-				GMessage aa = a as GMessage;
-				GMessage bb = b as GMessage;
-				return bb.compare(aa);
-			});
+			messages2 = temp;
 
+			update_complete();
 		}
 
 		public bool mark_read(string idx) {
@@ -277,14 +274,6 @@ namespace GmailFeed {
 			return false;
 		}
 
-		public Gee.List<GMessage> get_message_list() {
-			var list = new ArrayList<GMessage>();
-			foreach(var m in messages.values) {
-				list.add(new GMessage.copy(m));
-			}
-			return list;
-		}
-
 		private void handle_error(uint code) {
 			if(code == 401) {
 				connection_error(ConnectionError.UNAUTHORIZED);
@@ -298,7 +287,7 @@ namespace GmailFeed {
 		public string to_string() {
 			var sb = new StringBuilder();
 			sb.append("Messages: %d\n\n".printf(messages.size));
-			foreach(var m in list) {
+			foreach(var m in messages.values) {
 				sb.append(m.to_string());
 				sb.append("\n\n\n");
 			}
@@ -313,26 +302,9 @@ namespace GmailFeed {
 		public string summary {get; private set; default = "";}
 		public string id {get; private set; default = "";}
 		public DateTime time {get; private set; default = new DateTime.now_local();}
-
-		public bool read {
-			get {
-				return _read;
-			}
-		}
-		public bool starred {
-			get {
-				return _starred;
-			}
-		}
-		public bool important {
-			get {
-				return _important;
-			}
-		}
-
-		private bool _read;
-		private bool _starred;
-		private bool _important;
+		public bool read {get; private set; default = false;}
+		public bool starred {get; private set; default = false;}
+		public bool important {get; private set; default = false;}
 
 		public GMessage(string author, string subject, string summary, string id, DateTime time) {
 			this.author = author;
@@ -340,10 +312,6 @@ namespace GmailFeed {
 			this.summary = summary;
 			this.id = id;
 			this.time = time;
-
-			this._read = false;
-			this._starred = false;
-			this._important = false;
 		}
 
 		public GMessage.copy(GMessage other) {
@@ -353,9 +321,9 @@ namespace GmailFeed {
 			this.id = other.id;
 			this.time = time;
 
-			this._read = other._read;
-			this._starred = other._starred;
-			this._important = other._important;
+			this.read = other.read;
+			this.starred = other.starred;
+			this.important = other.important;
 		}
 
 		public string to_string() {
@@ -400,19 +368,19 @@ namespace GmailFeed {
 		// Spam -> sp
 
 		internal Message mark_read(string gmail_at) {
-			this._read = true;
+			this.read = true;
 			return act("rd", gmail_at);
 		}
 
 		internal Message toggle_starred(string gmail_at) {
-			var mess = act(_starred ? "xst" : "st", gmail_at);
-			_starred = !_starred;
+			var mess = act(starred ? "xst" : "st", gmail_at);
+			this.starred = !this.starred;
 			return mess;
 		}
 
 		internal Message toggle_important(string gmail_at) {
-			var mess = act(_important ? "mani" : "mai", gmail_at);
-			_important = !_important;
+			var mess = act(important ? "mani" : "mai", gmail_at);
+			this.important = !this.important;
 			return mess;
 		}
 

@@ -72,7 +72,7 @@ namespace GmailFeed {
 
 		private void build_icon() {
 			icon.set_from_file("./nomail.png");
-			icon.set_tooltip_text("No mail...");
+			icon.set_tooltip_text("Disconnected...");
 
 			var login = new MenuItem.with_label("Login");
 			var update = new MenuItem.with_label("Update");
@@ -84,6 +84,7 @@ namespace GmailFeed {
 
 			update.activate.connect(() => {
 				feed.update();
+				icon.set_tooltip_text("Updating...");
 			});
 
 			quit.activate.connect(() => {
@@ -116,7 +117,33 @@ namespace GmailFeed {
 
 		private void connect_feed_mailbox_signals() {
 			feed.new_message.connect((m) => {
-				mailbox.add_message(m);
+				var mail = new MailItem(m);
+				var id = mail.id;
+				mailbox.add_message(mail);
+
+				mail.mark_read_clicked.connect(() => {
+					feed.mark_read(id);
+				});
+
+				mail.archive_clicked.connect(() => {
+					feed.archive(id);
+				});
+
+				mail.spam_clicked.connect(() => {
+					feed.spam(id);
+				});
+
+				mail.delete_clicked.connect(() => {
+					feed.trash(id);
+				});
+
+				mail.star_clicked.connect(() => {
+					feed.toggle_starred(id);
+				});
+
+				mail.important_clicked.connect(() => {
+					feed.toggle_important(id);
+				});
 			});
 
 			feed.message_removed.connect((id) => {
@@ -142,32 +169,28 @@ namespace GmailFeed {
 
 		private void connect_feed_icon_signals() {
 			feed.login_success.connect(() => {
+				icon.set_from_file("./nomail.png");
+				icon.set_tooltip_text("Updating...");
 				feed.update();
 			});
 
 			feed.connection_error.connect(() => {
+				icon.set_from_file("./error.png");
+				icon.set_tooltip_text("Connection Error...");
 				login();
 			});
 
-			feed.new_message.connect((m) => {
-				var count = mailbox.size;
-				if(count == 1) {
-					icon.set_tooltip_text("There is 1 new message...");
-					icon.set_from_file("./mail.png");
-				} else {
-					icon.set_tooltip_text("There are %d new messages...".printf(count));
-				}
-			});
-
-			feed.message_removed.connect((m) => {
+			feed.update_complete.connect(() => {
 				var count = mailbox.size;
 				if(count == 0) {
 					icon.set_tooltip_text("No mail...");
 					icon.set_from_file("./nomail.png");
 				} else if(count == 1) {
 					icon.set_tooltip_text("There is 1 new message...");
+					icon.set_from_file("./mail.png");
 				} else {
 					icon.set_tooltip_text("There are %d new messages...".printf(count));
+					icon.set_from_file("./mail.png");
 				}
 			});
 		}

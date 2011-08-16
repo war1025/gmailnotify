@@ -39,6 +39,7 @@ namespace GmailFeed {
 		public signal void login_success();
 		public signal void connection_error(ConnectionError code);
 		public signal void feed_closed();
+		public signal void update_complete();
 
 		private Feed feed;
 		private AsyncQueue<FeedAction> queue;
@@ -167,6 +168,13 @@ namespace GmailFeed {
 			this.feed.connection_error.connect((c) => {
 				Idle.add(() => {
 					this.connection_error(c);
+					return false;
+				});
+			});
+
+			this.feed.update_complete.connect(() => {
+				Idle.add(() => {
+					this.update_complete();
 					return false;
 				});
 			});
