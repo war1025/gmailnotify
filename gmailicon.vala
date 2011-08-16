@@ -74,8 +74,13 @@ namespace GmailFeed {
 			icon.set_from_file("./nomail.png");
 			icon.set_tooltip_text("No mail...");
 
+			var login = new MenuItem.with_label("Login");
 			var update = new MenuItem.with_label("Update");
 			var quit = new MenuItem.with_label("Quit");
+
+			login.activate.connect(() => {
+				this.login();
+			});
 
 			update.activate.connect(() => {
 				feed.update();
@@ -89,10 +94,19 @@ namespace GmailFeed {
 				Gtk.main_quit();
 			});
 
+			popup_menu.append(login);
 			popup_menu.append(update);
 			popup_menu.append(quit);
 
 			popup_menu.show_all();
+
+			feed.login_success.connect(() => {
+				login.hide();
+			});
+
+			feed.connection_error.connect(() => {
+				login.show();
+			});
 
 			icon.popup_menu.connect((b,t) => {
 				popup_menu.popup(null, null, icon.position_menu, b, t);
