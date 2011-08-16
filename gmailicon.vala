@@ -8,6 +8,9 @@ namespace GmailFeed {
 		private Mailbox mailbox;
 		private FeedController feed;
 
+		private Dialog login_dialog;
+		private AuthDelegate ad;
+
 		public GmailIcon() {
 			icon = new StatusIcon();
 			mailbox = new Mailbox();
@@ -15,6 +18,7 @@ namespace GmailFeed {
 			popup_menu = new Menu();
 
 			build_icon();
+			build_login_dialog();
 
 			connect_feed_mailbox_signals();
 			connect_feed_icon_signals();
@@ -22,8 +26,48 @@ namespace GmailFeed {
 			icon.set_visible(true);
 		}
 
-		public void login(AuthDelegate ad) {
-			feed.login(ad);
+		private void build_login_dialog() {
+			login_dialog = new Dialog.with_buttons("Login", null, DialogFlags.MODAL);
+
+			var table = new Table(2, 2, false);
+
+			var name_label = new Label("Username:");
+			var name_entry = new Entry();
+			name_entry.width_chars = 12;
+
+			table.attach_defaults(name_label, 0, 1, 0, 1);
+			table.attach_defaults(name_entry, 1, 2, 0, 1);
+
+			var pass_label = new Label("Password:");
+			var pass_entry = new Entry();
+			pass_entry.width_chars = 12;
+			pass_entry.visibility = false;
+			pass_entry.invisible_char = '*';
+
+			table.attach_defaults(pass_label, 0, 1, 1, 2);
+			table.attach_defaults(pass_entry, 1, 2, 1, 2);
+
+			unowned Box box = (Box) login_dialog.get_content_area();
+			box.pack_start(table, true, true);
+
+			login_dialog.add_button("Login", 1);
+			login_dialog.add_button("Cancel", 0);
+
+			login_dialog.show_all();
+
+			ad = () => {
+				return {name_entry.text, pass_entry.text};
+			};
+		}
+
+		public void login() {
+			var response = login_dialog.run();
+
+			if(response == 1) {
+				feed.login(ad);
+			}
+
+			login_dialog.hide();
 		}
 
 		private void build_icon() {
@@ -39,6 +83,9 @@ namespace GmailFeed {
 
 			quit.activate.connect(() => {
 				feed.shutdown();
+			});
+
+			feed.feed_closed.connect(() => {
 				Gtk.main_quit();
 			});
 
@@ -80,6 +127,14 @@ namespace GmailFeed {
 		}
 
 		private void connect_feed_icon_signals() {
+			feed.login_success.connect(() => {
+				feed.update();
+			});
+
+			feed.connection_error.connect(() => {
+				login();
+			});
+
 			feed.new_message.connect((m) => {
 				var count = mailbox.size;
 				if(count == 1) {
@@ -108,7 +163,7 @@ namespace GmailFeed {
 		Gtk.init(ref args);
 
 		var icon = new GmailIcon();
-		icon.login(() => {return {args[1], args[2]};});
+		icon.login();
 
 		Gtk.main();
 	}

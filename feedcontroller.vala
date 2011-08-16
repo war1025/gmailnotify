@@ -38,6 +38,7 @@ namespace GmailFeed {
 		public signal void message_spammed(string id);
 		public signal void login_success();
 		public signal void connection_error(ConnectionError code);
+		public signal void feed_closed();
 
 		private Feed feed;
 		private AsyncQueue<FeedAction> queue;
@@ -69,7 +70,12 @@ namespace GmailFeed {
 						LoginAction la = data as LoginAction;
 						feed.login(() => {return {la.id, la.pass};});
 						break;
-					case FeedActionType.QUIT : return null;
+					case FeedActionType.QUIT :
+						Idle.add(() => {
+							this.feed_closed();
+							return false;
+						});
+						return null;
 				}
 			}
 		}
@@ -77,6 +83,7 @@ namespace GmailFeed {
 		public void shutdown() {
 			var act = new FeedAction();
 			act.action = FeedActionType.QUIT;
+			queue.push(act);
 		}
 
 		private void connect_signals() {
