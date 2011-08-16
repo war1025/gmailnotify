@@ -113,6 +113,26 @@ namespace GmailFeed {
 				popup_menu.popup(null, null, icon.position_menu, b, t);
 			});
 
+			icon.activate.connect(() => {
+				var window = new Window(WindowType.POPUP);
+
+				Gdk.Color white;
+				Gdk.Color.parse("#fff", out white);
+
+				var ebox = new EventBox();
+				var box = new VBox(false, 0);
+				ebox.modify_bg(StateType.NORMAL, white);
+
+				foreach(var w in mailbox.items) {
+					box.pack_start(w.visual);
+				}
+
+				ebox.add(box);
+				window.add(ebox);
+
+				window.show_all();
+			});
+
 		}
 
 		private void connect_feed_mailbox_signals() {
