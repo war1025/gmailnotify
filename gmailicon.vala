@@ -37,7 +37,7 @@ namespace GmailFeed {
 			var table = new Table(2, 2, false);
 
 			var name_label = new Label("Username:");
-			name_label.set_alignment(1, 0.5f);
+			name_label.set_alignment(0, 0.5f);
 			var name_entry = new Entry();
 			name_entry.width_chars = 12;
 
@@ -45,7 +45,7 @@ namespace GmailFeed {
 			table.attach_defaults(name_entry, 1, 2, 0, 1);
 
 			var pass_label = new Label("Password:");
-			pass_label.set_alignment(1, 0.5f);
+			pass_label.set_alignment(0, 0.5f);
 			var pass_entry = new Entry();
 			pass_entry.width_chars = 12;
 			pass_entry.visibility = false;
@@ -122,10 +122,12 @@ namespace GmailFeed {
 			});
 
 			icon.activate.connect(() => {
-				if(message_window.visible) {
-					message_window.hide();
-				} else {
-					message_window.show_all();
+				if(mailbox.size > 0) {
+					if(message_window.visible) {
+						message_window.hide();
+					} else {
+						message_window.show_all();
+					}
 				}
 			});
 
@@ -190,6 +192,9 @@ namespace GmailFeed {
 			feed.message_removed.connect((id) => {
 				var visual = mailbox[id].visual;
 				message_box.remove(visual);
+				if(mailbox.size == 0) {
+					message_window.hide();
+				}
 			});
 
 			feed.message_removed.connect((id) => {
@@ -237,6 +242,13 @@ namespace GmailFeed {
 				} else {
 					icon.set_tooltip_text("There are %d new messages...".printf(count));
 					icon.set_from_file("./mail.png");
+				}
+				if(message_window.visible == true) {
+					message_window.hide();
+					message_window.resize(5, 5);
+					if(count > 0) {
+						message_window.show_all();
+					}
 				}
 			});
 		}
