@@ -319,7 +319,7 @@ namespace GmailFeed {
 			this.subject = other.subject;
 			this.summary = other.summary;
 			this.id = other.id;
-			this.time = time;
+			this.time = other.time;
 
 			this.read = other.read;
 			this.starred = other.starred;

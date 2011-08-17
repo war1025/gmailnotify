@@ -8,6 +8,9 @@ namespace GmailFeed {
 		private Mailbox mailbox;
 		private FeedController feed;
 
+		private Window message_window;
+		private VBox message_box;
+
 		private Dialog login_dialog;
 		private AuthDelegate ad;
 
@@ -16,9 +19,11 @@ namespace GmailFeed {
 			mailbox = new Mailbox();
 			feed = new FeedController();
 			popup_menu = new Menu();
+			message_window = new Window(WindowType.POPUP);
 
 			build_icon();
 			build_login_dialog();
+			build_message_window();
 
 			connect_feed_mailbox_signals();
 			connect_feed_icon_signals();
@@ -114,25 +119,25 @@ namespace GmailFeed {
 			});
 
 			icon.activate.connect(() => {
-				var window = new Window(WindowType.POPUP);
-
-				Gdk.Color white;
-				Gdk.Color.parse("#fff", out white);
-
-				var ebox = new EventBox();
-				var box = new VBox(false, 0);
-				ebox.modify_bg(StateType.NORMAL, white);
-
-				foreach(var w in mailbox.items) {
-					box.pack_start(w.visual);
+				if(message_window.visible) {
+					message_window.hide();
+				} else {
+					message_window.show_all();
 				}
-
-				ebox.add(box);
-				window.add(ebox);
-
-				window.show_all();
 			});
 
+		}
+
+		private void build_message_window() {
+			Gdk.Color white;
+			Gdk.Color.parse("#fff", out white);
+
+			var ebox = new EventBox();
+			message_box = new VBox(false, 5);
+			ebox.modify_bg(StateType.NORMAL, white);
+
+			ebox.add(message_box);
+			message_window.add(ebox);
 		}
 
 		private void connect_feed_mailbox_signals() {
@@ -164,6 +169,24 @@ namespace GmailFeed {
 				mail.important_clicked.connect(() => {
 					feed.toggle_important(id);
 				});
+			});
+
+			feed.new_message.connect((m) => {
+				var visual = mailbox[m.id].visual;
+				int c = 0;
+				foreach(var mess in mailbox.items) {
+					if(mess.id == m.id) {
+						message_box.pack_start(visual, false, false, 5);
+						message_box.reorder_child(visual, c);
+						break;
+					}
+					c++;
+				}
+			});
+
+			feed.message_removed.connect((id) => {
+				var visual = mailbox[id].visual;
+				message_box.remove(visual);
 			});
 
 			feed.message_removed.connect((id) => {

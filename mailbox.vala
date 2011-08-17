@@ -40,19 +40,20 @@ namespace GmailFeed {
 			Gdk.Color white;
 			Gdk.Color.parse("#fff", out white);
 
-			var hbox = new HBox(false, 0);
+			var hbox = new HBox(false, 5);
 			var vbox = new VBox(false, 0);
-			hbox.pack_start(vbox, false, false);
+			hbox.pack_start(vbox, false, false, 5);
 
 			var subject_box = new HBox(false, 0);
 			var subject_l = new Label(null);
+			subject_l.set_alignment(0, 0.5f);
 			subject_l.wrap = true;
 			subject_l.set_markup("<span foreground='#000'><b><u>%s</u></b></span>".printf(this.subject));
 			var subject_e = new EventBox();
 			subject_e.modify_bg(StateType.NORMAL, white);
 			subject_e.add(subject_l);
 			subject_box.pack_start(subject_e, false, false);
-			vbox.pack_start(subject_box, false, false);
+			vbox.pack_start(subject_box, false, false, 1);
 
 			var spacer = new HBox(false, 0);
 			spacer.border_width = 1;
@@ -60,6 +61,7 @@ namespace GmailFeed {
 
 			var from_box = new HBox(false, 0);
 			var from_l = new Label(null);
+			from_l.set_alignment(0, 0.5f);
 			from_l.wrap = true;
 			from_l.set_markup("<b>From:</b> %s".printf(this.author));
 			from_box.pack_start(from_l, false, false);
@@ -67,6 +69,7 @@ namespace GmailFeed {
 
 			var summary_box = new HBox(false, 0);
 			var summary_l = new Label(null);
+			summary_l.set_alignment(0, 0.5f);
 			summary_l.wrap = true;
 			summary_l.set_markup("<span foreground='grey25'>%s</span>".printf(this.summary));
 			summary_box.pack_start(summary_l, false, false);
@@ -116,12 +119,21 @@ namespace GmailFeed {
 		public void add_message(MailItem m) {
 			if(!messages.has_key(m.id)) {
 				messages[m.id] = m;
-				mail_list.add(m);
-				mail_list.sort((a,b) => {
-					var aa = a as MailItem;
-					var bb = b as MailItem;
-					return bb.time.compare(aa.time);
-				});
+				int i;
+				for(i = 0; i < mail_list.size; i++) {
+					if(mail_list[i].time.compare(m.time) < 0) {
+						break;
+					}
+				}
+				mail_list.insert(i, m);
+			}
+		}
+
+		public new MailItem? get(string id) {
+			if(messages.has_key(id)) {
+				return messages[id];
+			} else {
+				return null;
 			}
 		}
 
