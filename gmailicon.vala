@@ -37,6 +37,7 @@ namespace GmailFeed {
 			var table = new Table(2, 2, false);
 
 			var name_label = new Label("Username:");
+			name_label.set_alignment(1, 0.5f);
 			var name_entry = new Entry();
 			name_entry.width_chars = 12;
 
@@ -44,10 +45,12 @@ namespace GmailFeed {
 			table.attach_defaults(name_entry, 1, 2, 0, 1);
 
 			var pass_label = new Label("Password:");
+			pass_label.set_alignment(1, 0.5f);
 			var pass_entry = new Entry();
 			pass_entry.width_chars = 12;
 			pass_entry.visibility = false;
 			pass_entry.invisible_char = '*';
+			pass_entry.activates_default = true;
 
 			table.attach_defaults(pass_label, 0, 1, 1, 2);
 			table.attach_defaults(pass_entry, 1, 2, 1, 2);
@@ -55,7 +58,7 @@ namespace GmailFeed {
 			unowned Box box = (Box) login_dialog.get_content_area();
 			box.pack_start(table, true, true);
 
-			login_dialog.add_button("Login", 1);
+			login_dialog.set_default(login_dialog.add_button("Login", 1));
 			login_dialog.add_button("Cancel", 0);
 
 			login_dialog.show_all();
