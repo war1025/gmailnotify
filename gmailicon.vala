@@ -33,6 +33,7 @@ namespace GmailFeed {
 
 		private void build_login_dialog() {
 			login_dialog = new Dialog.with_buttons("Login", null, DialogFlags.MODAL);
+			login_dialog.set_icon_from_file("./mail.png");
 
 			var table = new Table(2, 2, false);
 
