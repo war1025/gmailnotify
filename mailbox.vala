@@ -22,6 +22,42 @@ namespace GmailFeed {
 
 		private Gee.MultiMap<GLib.Object, ulong> signals;
 
+		private Image star_i;
+		private bool star_active;
+		private static Gdk.Pixbuf STAR_FULL = star_full();
+		private static Gdk.Pixbuf STAR_EMPTY = star_empty();
+		private static Gdk.Pixbuf STAR_HALF = star_half();
+
+		private static Gdk.Pixbuf star_full() {
+			return new Gdk.Pixbuf.from_file_at_size("./star_full.png", 16, 16);
+		}
+
+		private static Gdk.Pixbuf star_empty() {
+			return new Gdk.Pixbuf.from_file_at_size("./star_empty.png", 16, 16);
+		}
+
+		private static Gdk.Pixbuf star_half() {
+			return new Gdk.Pixbuf.from_file_at_size("./star_half.png", 16, 16);
+		}
+
+		private Image important_i;
+		private bool important_active;
+		private static Gdk.Pixbuf IMPORTANT_FULL = important_full();
+		private static Gdk.Pixbuf IMPORTANT_EMPTY = important_empty();
+		private static Gdk.Pixbuf IMPORTANT_HALF = important_half();
+
+		private static Gdk.Pixbuf important_full() {
+			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/important_full.png", 20, 11);
+		}
+
+		private static Gdk.Pixbuf important_empty() {
+			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/important_empty.png", 20, 11);
+		}
+
+		private static Gdk.Pixbuf important_half() {
+			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/important_half.png", 20, 11);
+		}
+
 		public MailItem(GMessage mess) {
 			this.author = mess.author;
 			this.subject = mess.subject;
@@ -71,6 +107,64 @@ namespace GmailFeed {
 			from_l.wrap = true;
 			from_l.set_markup("<b>From:</b> %s".printf(this.author));
 			from_box.pack_start(from_l, false, false);
+
+			star_i = new Image.from_pixbuf(STAR_EMPTY);
+			star_active = true;
+			var star_e = new EventBox();
+			star_e.modify_bg(StateType.NORMAL, white);
+			star_e.add(star_i);
+			from_box.pack_start(star_e, false, false, 3);
+			var ste = star_e.enter_notify_event.connect(() => {
+				if(star_active) {
+					star_i.pixbuf = STAR_HALF;
+				}
+				return false;
+			});
+			var stl = star_e.leave_notify_event.connect(() => {
+				if(star_active) {
+					star_i.pixbuf = this.starred ? STAR_FULL : STAR_EMPTY;
+				}
+				return false;
+			});
+			sigid = star_e.button_press_event.connect(() => {
+				if(star_active) {
+					star_active = false;
+					star_clicked();
+				}
+				return false;
+			});
+			signals.set(star_e, ste);
+			signals.set(star_e, stl);
+			signals.set(star_e, sigid);
+
+			important_i = new Image.from_pixbuf(IMPORTANT_EMPTY);
+			important_active = true;
+			var important_e = new EventBox();
+			important_e.modify_bg(StateType.NORMAL, white);
+			important_e.add(important_i);
+			from_box.pack_start(important_e, false, false, 3);
+			var ie = important_e.enter_notify_event.connect(() => {
+				if(important_active) {
+					important_i.pixbuf = IMPORTANT_HALF;
+				}
+				return false;
+			});
+			var il = important_e.leave_notify_event.connect(() => {
+				if(important_active) {
+					important_i.pixbuf = this.important ? IMPORTANT_FULL : IMPORTANT_EMPTY;
+				}
+				return false;
+			});
+			sigid = important_e.button_press_event.connect(() => {
+				if(important_active) {
+					important_active = false;
+					important_clicked();
+				}
+				return false;
+			});
+			signals.set(important_e, ie);
+			signals.set(important_e, il);
+			signals.set(important_e, sigid);
 			vbox.pack_start(from_box, false, false);
 
 			var actions_box = new HBox(false, 0);
@@ -202,19 +296,27 @@ namespace GmailFeed {
 		}
 
 		public void make_starred() {
-
+			this.starred = true;
+			this.star_active = true;
+			this.star_i.pixbuf = STAR_FULL;
 		}
 
 		public void make_unstarred() {
-
+			this.starred = false;
+			this.star_active = true;
+			this.star_i.pixbuf = STAR_EMPTY;
 		}
 
 		public void make_important() {
-
+			this.important = true;
+			this.important_active = true;
+			this.important_i.pixbuf = IMPORTANT_FULL;
 		}
 
 		public void make_unimportant() {
-
+			this.important = false;
+			this.important_active = true;
+			this.important_i.pixbuf = IMPORTANT_EMPTY;
 		}
 	}
 
