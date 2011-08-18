@@ -38,7 +38,6 @@ namespace GmailFeed {
 		private CookieJar cookiejar;
 		private Gee.Map<string, GMessage> messages;
 		private Gee.Map<string, GMessage> messages2;
-		private Gee.Set<string> removed;
 		private string gmail_at;
 
 		public int count {
@@ -55,7 +54,6 @@ namespace GmailFeed {
 
 			messages = new HashMap<string, GMessage>();
 			messages2 = new HashMap<string, GMessage>();
-			removed = new HashSet<string>();
 			gmail_at = "";
 		}
 
@@ -171,7 +169,7 @@ namespace GmailFeed {
 			}
 
 			foreach(var k in messages.keys) {
-				if(!(messages2.has_key(k) || removed.contains(k))) {
+				if(!messages2.has_key(k)) {
 					message_removed(k);
 				}
 			}
@@ -181,7 +179,6 @@ namespace GmailFeed {
 			messages2 = temp;
 
 			messages2.clear();
-			removed.clear();
 
 			update_complete();
 		}
@@ -194,7 +191,7 @@ namespace GmailFeed {
 					handle_error(mess.status_code);
 				} else {
 					message_read(idx);
-					removed.add(idx);
+					messages.unset(idx);
 					return true;
 				}
 			}
@@ -245,7 +242,7 @@ namespace GmailFeed {
 					handle_error(mess.status_code);
 				} else {
 					message_archived(idx);
-					removed.add(idx);
+					messages.unset(idx);
 					return true;
 				}
 			}
@@ -260,7 +257,7 @@ namespace GmailFeed {
 					handle_error(mess.status_code);
 				} else {
 					message_trashed(idx);
-					removed.add(idx);
+					messages.unset(idx);
 					return true;
 				}
 			}
@@ -275,7 +272,7 @@ namespace GmailFeed {
 					handle_error(mess.status_code);
 				} else {
 					message_spammed(idx);
-					removed.add(idx);
+					messages.unset(idx);
 					return true;
 				}
 			}
