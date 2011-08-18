@@ -29,15 +29,15 @@ namespace GmailFeed {
 		private static Gdk.Pixbuf STAR_HALF = star_half();
 
 		private static Gdk.Pixbuf star_full() {
-			return new Gdk.Pixbuf.from_file_at_size("./star_full.png", 16, 16);
+			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_full.png", 16, 16);
 		}
 
 		private static Gdk.Pixbuf star_empty() {
-			return new Gdk.Pixbuf.from_file_at_size("./star_empty.png", 16, 16);
+			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_empty.png", 16, 16);
 		}
 
 		private static Gdk.Pixbuf star_half() {
-			return new Gdk.Pixbuf.from_file_at_size("./star_half.png", 16, 16);
+			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_half.png", 16, 16);
 		}
 
 		private Image important_i;
