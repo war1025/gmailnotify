@@ -151,6 +151,28 @@ namespace GmailFeed {
 			message_box = new VBox(false, 5);
 			ebox.modify_bg(StateType.NORMAL, white);
 
+			uint event_id = 0;
+			bool id_set = false;
+
+			ebox.enter_notify_event.connect((e) => {
+				if(id_set) {
+					Source.remove(event_id);
+					id_set = false;
+				}
+				return false;
+			});
+
+			ebox.leave_notify_event.connect((e) => {
+				if(!(e.detail == Gdk.NotifyType.INFERIOR)) {
+					event_id = Timeout.add_seconds(1, () => {
+						message_window.hide();
+						return false;
+					});
+					id_set = true;
+				}
+				return false;
+			});
+
 			ebox.add(message_box);
 			message_window.add(ebox);
 
