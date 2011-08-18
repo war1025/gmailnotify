@@ -10,9 +10,17 @@ namespace GmailFeed {
 
 		private Window message_window;
 		private VBox message_box;
+		private int window_x;
+		private int window_y;
+		private bool request_update;
 
 		private Dialog login_dialog;
 		private AuthDelegate ad;
+		private uint timer_id;
+
+		private static string MAIL_ICON = "/usr/share/gmailnotify/mail.png";
+		private static string NO_MAIL_ICON = "/usr/share/gmailnotify/nomail.png";
+		private static string ERROR_ICON = "/usr/share/gmailnotify/error.png";
 
 		public GmailIcon() {
 			icon = new StatusIcon();
@@ -33,7 +41,7 @@ namespace GmailFeed {
 
 		private void build_login_dialog() {
 			login_dialog = new Dialog.with_buttons("Login", null, DialogFlags.MODAL);
-			login_dialog.set_icon_from_file("./mail.png");
+			login_dialog.set_icon_from_file(MAIL_ICON);
 
 			var table = new Table(2, 2, false);
 
@@ -80,7 +88,7 @@ namespace GmailFeed {
 		}
 
 		private void build_icon() {
-			icon.set_from_file("./nomail.png");
+			icon.set_from_file(NO_MAIL_ICON);
 			icon.set_tooltip_text("Disconnected...");
 
 			var login = new MenuItem.with_label("Login");
@@ -127,6 +135,7 @@ namespace GmailFeed {
 					if(message_window.visible) {
 						message_window.hide();
 					} else {
+						message_window.resize(5, 5);
 						message_window.show_all();
 					}
 				}
@@ -144,6 +153,23 @@ namespace GmailFeed {
 
 			ebox.add(message_box);
 			message_window.add(ebox);
+
+			icon.size_changed.connect(() => {
+				Gdk.Rectangle rect;
+				Gdk.Screen screen;
+				Orientation orientation;
+				icon.get_geometry(out screen, out rect, out orientation);
+
+				int x;
+				x = icon.screen.get_width();
+
+				window_y = rect.y + rect.height + 5;
+				window_x = x - 405;
+
+				message_window.move(window_x, window_y);
+				return false;
+			});
+
 		}
 
 		private void connect_feed_mailbox_signals() {
@@ -190,16 +216,63 @@ namespace GmailFeed {
 				}
 			});
 
+			feed.new_message.connect((m) => {
+				Process.spawn_command_line_sync("notify-send -i %s \"New Message\" \"<small><b>From:</b> %s</small>\"".printf(MAIL_ICON, m.author));
+			});
+
+			feed.message_read.connect(() => {
+				request_update = true;
+			});
+
+			feed.message_archived.connect(() => {
+				request_update = true;
+			});
+
+			feed.message_spammed.connect(() => {
+				request_update = true;
+			});
+
+			feed.message_trashed.connect(() => {
+				request_update = true;
+			});
+
 			feed.message_removed.connect((id) => {
 				var visual = mailbox[id].visual;
 				message_box.remove(visual);
-				if(mailbox.size == 0) {
+				if(mailbox.size == 1) {
 					message_window.hide();
+					message_window.resize(5, 2);
 				}
 			});
 
 			feed.message_removed.connect((id) => {
 				mailbox.remove_message(id);
+			});
+
+			feed.message_removed.connect(() => {
+				if(request_update) {
+					var count = mailbox.size;
+					if(count == 0) {
+						icon.set_tooltip_text("No mail...");
+						icon.set_from_file(NO_MAIL_ICON);
+					} else if(count == 1) {
+						icon.set_tooltip_text("There is 1 new message...");
+						icon.set_from_file(MAIL_ICON);
+					} else {
+						icon.set_tooltip_text("There are %d new messages...".printf(count));
+						icon.set_from_file(MAIL_ICON);
+					}
+					if(message_window.visible) {
+						message_window.hide();
+						message_window.resize(5, 5);
+						if(count > 0) {
+							message_window.show_all();
+						}
+					} else {
+						message_window.resize(5, 5);
+					}
+				}
+				request_update = false;
 			});
 
 			feed.message_starred.connect((id) => {
@@ -221,35 +294,42 @@ namespace GmailFeed {
 
 		private void connect_feed_icon_signals() {
 			feed.login_success.connect(() => {
-				icon.set_from_file("./nomail.png");
+				icon.set_from_file(NO_MAIL_ICON);
 				icon.set_tooltip_text("Updating...");
 				feed.update();
+				timer_id = Timeout.add_seconds(120, () => {
+					feed.update();
+					return true;
+				});
 			});
 
 			feed.connection_error.connect(() => {
-				icon.set_from_file("./error.png");
+				icon.set_from_file(ERROR_ICON);
 				icon.set_tooltip_text("Connection Error...");
 				login();
+				Source.remove(timer_id);
 			});
 
 			feed.update_complete.connect(() => {
 				var count = mailbox.size;
 				if(count == 0) {
 					icon.set_tooltip_text("No mail...");
-					icon.set_from_file("./nomail.png");
+					icon.set_from_file(NO_MAIL_ICON);
 				} else if(count == 1) {
 					icon.set_tooltip_text("There is 1 new message...");
-					icon.set_from_file("./mail.png");
+					icon.set_from_file(MAIL_ICON);
 				} else {
 					icon.set_tooltip_text("There are %d new messages...".printf(count));
-					icon.set_from_file("./mail.png");
+					icon.set_from_file(MAIL_ICON);
 				}
-				if(message_window.visible == true) {
+				if(message_window.visible) {
 					message_window.hide();
 					message_window.resize(5, 5);
 					if(count > 0) {
 						message_window.show_all();
 					}
+				} else {
+					message_window.resize(5, 5);
 				}
 			});
 		}
