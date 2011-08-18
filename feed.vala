@@ -69,6 +69,8 @@ namespace GmailFeed {
 				unowned Cookie c = cookies.nth_data(i);
 				if(c.name == "GALX") {
 					galx = URI.encode(c.value, null);
+				} else if(c.name == "GMAIL_AT") {
+					cookiejar.delete_cookie(c);
 				}
 			}
 
