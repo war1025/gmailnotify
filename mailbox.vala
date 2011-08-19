@@ -22,6 +22,8 @@ namespace GmailFeed {
 
 		private Gee.MultiMap<GLib.Object, ulong> signals;
 
+		private bool actions_active;
+
 		private Image star_i;
 		private bool star_active;
 		private static Gdk.Pixbuf STAR_FULL = star_full();
@@ -69,6 +71,10 @@ namespace GmailFeed {
 
 			this.signals = new Gee.HashMultiMap<GLib.Object, ulong>();
 
+			this.actions_active = true;
+			this.star_active = true;
+			this.important_active = true;
+
 			create_visual();
 		}
 
@@ -109,7 +115,6 @@ namespace GmailFeed {
 			from_box.pack_start(from_l, false, false);
 
 			star_i = new Image.from_pixbuf(STAR_EMPTY);
-			star_active = true;
 			var star_e = new EventBox();
 			star_e.modify_bg(StateType.NORMAL, white);
 			star_e.add(star_i);
@@ -138,7 +143,6 @@ namespace GmailFeed {
 			signals.set(star_e, sigid);
 
 			important_i = new Image.from_pixbuf(IMPORTANT_EMPTY);
-			important_active = true;
 			var important_e = new EventBox();
 			important_e.modify_bg(StateType.NORMAL, white);
 			important_e.add(important_i);
@@ -176,20 +180,23 @@ namespace GmailFeed {
 			read_e.add(read_l);
 			actions_box.pack_start(read_e, false, false);
 			var re = read_e.enter_notify_event.connect(() => {
-				read_l.set_markup("<small><u><span foreground='darkred'>Mark as read</span></u> |</small>");
+				if(actions_active) {
+					read_l.set_markup("<small><u><span foreground='darkred'>Mark as read</span></u> |</small>");
+				}
 				return false;
 			});
 			var rl = read_e.leave_notify_event.connect(() => {
-				read_l.set_markup("<small><span foreground='darkred'>Mark as read</span> |</small>");
+				if(actions_active) {
+					read_l.set_markup("<small><span foreground='darkred'>Mark as read</span> |</small>");
+				}
 				return false;
 			});
 			sigid = read_e.button_press_event.connect(() => {
-				read_l.set_markup("<small><i><u><span foreground='darkred'>Marking as read...</span></u></i> |</small>");
-				read_e.disconnect(re);
-				read_e.disconnect(rl);
-				signals.remove(read_e, re);
-				signals.remove(read_e, rl);
-				mark_read_clicked();
+				if(actions_active) {
+					read_l.set_markup("<small><i><u><span foreground='darkred'>Marking as read...</span></u></i> |</small>");
+					mark_read_clicked();
+					actions_active = false;
+				}
 				return false;
 			});
 			signals.set(read_e, re);
@@ -204,20 +211,23 @@ namespace GmailFeed {
 			archive_e.add(archive_l);
 			actions_box.pack_start(archive_e, false, false);
 			var ae = archive_e.enter_notify_event.connect(() => {
-				archive_l.set_markup("<small> <u><span foreground='darkred'>Archive</span></u> |</small>");
+				if(actions_active) {
+					archive_l.set_markup("<small> <u><span foreground='darkred'>Archive</span></u> |</small>");
+				}
 				return false;
 			});
 			var al = archive_e.leave_notify_event.connect(() => {
-				archive_l.set_markup("<small> <span foreground='darkred'>Archive</span> |</small>");
+				if(actions_active) {
+					archive_l.set_markup("<small> <span foreground='darkred'>Archive</span> |</small>");
+				}
 				return false;
 			});
 			sigid = archive_e.button_press_event.connect(() => {
-				archive_l.set_markup("<small> <i><u><span foreground='darkred'>Archiving...</span></u></i> |</small>");
-				archive_e.disconnect(ae);
-				archive_e.disconnect(al);
-				signals.remove(archive_e, ae);
-				signals.remove(archive_e, al);
-				archive_clicked();
+				if(actions_active) {
+					archive_l.set_markup("<small> <i><u><span foreground='darkred'>Archiving...</span></u></i> |</small>");
+					archive_clicked();
+					actions_active = false;
+				}
 				return false;
 			});
 			signals.set(archive_e, ae);
@@ -232,20 +242,23 @@ namespace GmailFeed {
 			spam_e.add(spam_l);
 			actions_box.pack_start(spam_e, false, false);
 			var se = spam_e.enter_notify_event.connect(() => {
-				spam_l.set_markup("<small> <u><span foreground='darkred'>Report spam</span></u> |</small>");
+				if(actions_active) {
+					spam_l.set_markup("<small> <u><span foreground='darkred'>Report spam</span></u> |</small>");
+				}
 				return false;
 			});
 			var sl = spam_e.leave_notify_event.connect(() => {
-				spam_l.set_markup("<small> <span foreground='darkred'>Report spam</span> |</small>");
+				if(actions_active) {
+					spam_l.set_markup("<small> <span foreground='darkred'>Report spam</span> |</small>");
+				}
 				return false;
 			});
 			sigid = spam_e.button_press_event.connect(() => {
-				spam_l.set_markup("<small> <i><u><span foreground='darkred'>Reporting spam...</span></u></i> |</small>");
-				spam_e.disconnect(se);
-				spam_e.disconnect(sl);
-				signals.remove(spam_e, se);
-				signals.remove(spam_e, sl);
-				spam_clicked();
+				if(actions_active) {
+					spam_l.set_markup("<small> <i><u><span foreground='darkred'>Reporting spam...</span></u></i> |</small>");
+					spam_clicked();
+					actions_active = false;
+				}
 				return false;
 			});
 			signals.set(spam_e, se);
@@ -260,20 +273,23 @@ namespace GmailFeed {
 			trash_e.add(trash_l);
 			actions_box.pack_start(trash_e, false, false);
 			var te = trash_e.enter_notify_event.connect(() => {
-				trash_l.set_markup("<small> <u><span foreground='darkred'>Delete</span></u></small>");
+				if(actions_active) {
+					trash_l.set_markup("<small> <u><span foreground='darkred'>Delete</span></u></small>");
+				}
 				return false;
 			});
 			var tl = trash_e.leave_notify_event.connect(() => {
-				trash_l.set_markup("<small> <span foreground='darkred'>Delete</span></small>");
+				if(actions_active) {
+					trash_l.set_markup("<small> <span foreground='darkred'>Delete</span></small>");
+				}
 				return false;
 			});
 			sigid = trash_e.button_press_event.connect(() => {
-				trash_l.set_markup("<small> <i><u><span foreground='darkred'>Deleting</span></u></i></small>");
-				trash_e.disconnect(te);
-				trash_e.disconnect(tl);
-				signals.remove(trash_e, te);
-				signals.remove(trash_e, tl);
-				delete_clicked();
+				if(actions_active) {
+					trash_l.set_markup("<small> <i><u><span foreground='darkred'>Deleting</span></u></i></small>");
+					delete_clicked();
+					actions_active = false;
+				}
 				return false;
 			});
 			signals.set(trash_e, te);
@@ -317,6 +333,12 @@ namespace GmailFeed {
 			this.important = false;
 			this.important_active = true;
 			this.important_i.pixbuf = IMPORTANT_EMPTY;
+		}
+
+		public void reactivate() {
+			this.actions_active = true;
+			this.important_active = true;
+			this.star_active = true;
 		}
 	}
 
@@ -396,6 +418,12 @@ namespace GmailFeed {
 			if(messages.has_key(id)) {
 				var mess = messages[id];
 				mess.make_unimportant();
+			}
+		}
+
+		public void reactivate_all() {
+			foreach(var mess in mail_list) {
+				mess.reactivate();
 			}
 		}
 	}

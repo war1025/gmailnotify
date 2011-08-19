@@ -312,6 +312,10 @@ namespace GmailFeed {
 			feed.message_unimportant.connect((id) => {
 				mailbox.unimportant_message(id);
 			});
+
+			feed.connection_error.connect(() => {
+				mailbox.reactivate_all();
+			});
 		}
 
 		private void connect_feed_icon_signals() {
