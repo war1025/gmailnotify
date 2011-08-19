@@ -239,7 +239,7 @@ namespace GmailFeed {
 			});
 
 			feed.new_message.connect((m) => {
-				Process.spawn_command_line_sync("notify-send -i %s \"New Message\" \"<small><b>From:</b> %s</small>\"".printf(MAIL_ICON, m.author));
+				Process.spawn_command_line_sync("notify-send -i %s \"%s\" \"<small>%s</small>\"".printf(MAIL_ICON, m.author, m.subject));
 			});
 
 			feed.message_read.connect(() => {
