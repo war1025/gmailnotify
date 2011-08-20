@@ -41,7 +41,10 @@ namespace GmailFeed {
 
 		private void build_login_dialog() {
 			login_dialog = new Dialog.with_buttons("Login", null, DialogFlags.MODAL);
-			login_dialog.set_icon_from_file(MAIL_ICON);
+			try {
+				login_dialog.set_icon_from_file(MAIL_ICON);
+			} catch(Error e) {
+			}
 
 			var table = new Table(2, 2, false);
 
@@ -239,7 +242,10 @@ namespace GmailFeed {
 			});
 
 			feed.new_message.connect((m) => {
-				Process.spawn_command_line_sync("notify-send -i %s \"%s\" \"<small>%s</small>\"".printf(MAIL_ICON, m.author, m.subject));
+				try {
+					Process.spawn_command_line_sync("notify-send -i %s \"%s\" \"<small>%s</small>\"".printf(MAIL_ICON, m.author, m.subject));
+				} catch(Error e) {
+				}
 			});
 
 			feed.message_read.connect(() => {

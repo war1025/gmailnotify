@@ -51,7 +51,11 @@ namespace GmailFeed {
 
 			connect_signals();
 
-			this.thread = Thread.create<void*>(run, true);
+			try {
+				this.thread = Thread.create<void*>(run, true);
+			} catch(ThreadError e) {
+				stderr.printf("Error starting thread\n");
+			}
 
 		}
 

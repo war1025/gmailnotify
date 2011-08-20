@@ -26,38 +26,32 @@ namespace GmailFeed {
 
 		private Image star_i;
 		private bool star_active;
-		private static Gdk.Pixbuf STAR_FULL = star_full();
-		private static Gdk.Pixbuf STAR_EMPTY = star_empty();
-		private static Gdk.Pixbuf STAR_HALF = star_half();
-
-		private static Gdk.Pixbuf star_full() {
-			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_full.png", 16, 16);
-		}
-
-		private static Gdk.Pixbuf star_empty() {
-			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_empty.png", 16, 16);
-		}
-
-		private static Gdk.Pixbuf star_half() {
-			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_half.png", 16, 16);
-		}
 
 		private Image important_i;
 		private bool important_active;
-		private static Gdk.Pixbuf IMPORTANT_FULL = important_full();
-		private static Gdk.Pixbuf IMPORTANT_EMPTY = important_empty();
-		private static Gdk.Pixbuf IMPORTANT_HALF = important_half();
 
-		private static Gdk.Pixbuf important_full() {
-			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/important_full.png", 20, 11);
-		}
+		private static Gdk.Pixbuf STAR_FULL;
+		private static Gdk.Pixbuf STAR_EMPTY;
+		private static Gdk.Pixbuf STAR_HALF;
 
-		private static Gdk.Pixbuf important_empty() {
-			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/important_empty.png", 20, 11);
-		}
+		private static Gdk.Pixbuf IMPORTANT_FULL;
+		private static Gdk.Pixbuf IMPORTANT_EMPTY;
+		private static Gdk.Pixbuf IMPORTANT_HALF;
 
-		private static Gdk.Pixbuf important_half() {
-			return new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/important_half.png", 20, 11);
+		static construct {
+			var base_dir = "/usr/share/gmailnotify";
+
+			try {
+				STAR_FULL = new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_full.png", 16, 16);
+				STAR_EMPTY = new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_empty.png", 16, 16);
+				STAR_HALF = new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_half.png", 16, 16);
+
+				IMPORTANT_FULL = new Gdk.Pixbuf.from_file_at_size("%s/important_full.png".printf(base_dir), 20, 11);
+				IMPORTANT_EMPTY = new Gdk.Pixbuf.from_file_at_size("%s/important_empty.png".printf(base_dir), 20, 11);
+				IMPORTANT_HALF = new Gdk.Pixbuf.from_file_at_size("%s/important_half.png".printf(base_dir), 20, 11);
+			} catch(GLib.Error e) {
+				stderr.printf("Could not load images\n");
+			}
 		}
 
 		public MailItem(GMessage mess) {
