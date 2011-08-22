@@ -3,7 +3,15 @@ using Gtk;
 
 namespace GmailFeed {
 
+	/**
+	 * A MailItem represents an email message and its visual state.
+	 * Methods are available to alter the message, and signals are used to
+	 * indicate when actions have been requested on the item.
+	 **/
 	public class MailItem : GLib.Object {
+		/**
+		 * These signals correspond to the clickable areas of the message when displayed
+		 **/
 		public signal void mark_read_clicked();
 		public signal void archive_clicked();
 		public signal void spam_clicked();
@@ -11,25 +19,63 @@ namespace GmailFeed {
 		public signal void star_clicked();
 		public signal void important_clicked();
 
+		/**
+		 * Visual is the representation of the message that can be displayed in the popup.
+		 * It is intended to be embedded in a VBox along with all other messages to represent the unread inbox.
+		 * For this reason it should be laid out in a way that is vertically compact.
+		 **/
 		public Widget visual {get; private set;}
+
+		/**
+		 * These fields are scraped from the atom feed
+		 **/
 		public string author {get; private set; default = "No Author";}
 		public string subject {get; private set; default = "No Subject";}
 		public string summary {get; private set; default = "";}
 		public string id {get; private set; default = "";}
 		public DateTime time {get; private set; default = new DateTime.now_local();}
+
+		/**
+		 * We have no way of telling if a message is starred or important. These default to false.
+		 **/
 		public bool starred {get; private set; default = false;}
 		public bool important {get; private set; default = false;}
 
+		/**
+		 * All of the signals need to be disconnected before this item can be deleted.
+		 * Otherwise references hang around and it will not be deleted.
+		 * So we collect them and provide a method to remove them all at once.
+		 **/
 		private Gee.MultiMap<GLib.Object, ulong> signals;
 
+		/**
+		 * The way the Feed is set up, only one action can be taken on a message before it is removed.
+		 * So we need to deactivate all of the actions once an action is selected. This will be reset if
+		 * a connection error signal is received
+		 **/
 		private bool actions_active;
 
+		/**
+		 * The star image represents the state of the message starring. Empty means unstarred. Colored means starred.
+		 * A half colored star means a message is queued to toggle the state. State will be toggled when a response signal
+		 * is received.
+		 * The star is not clickable while a message is queued to toggle state.
+		 **/
 		private Image star_i;
 		private bool star_active;
 
+		/**
+		 * The important image represents the state of the message importance. Empty means unimportant. Colored means important.
+		 * A half colored icon means a message is queued to toggle the state. State will be toggled when a response signal
+		 * is received.
+		 * The icon is not clickable while a message is queued to toggle state.
+		 **/
 		private Image important_i;
 		private bool important_active;
 
+		/**
+		 * These images are static because they can be reused by all messages.
+		 **/
 		private static Gdk.Pixbuf STAR_FULL;
 		private static Gdk.Pixbuf STAR_EMPTY;
 		private static Gdk.Pixbuf STAR_HALF;
@@ -39,6 +85,7 @@ namespace GmailFeed {
 		private static Gdk.Pixbuf IMPORTANT_HALF;
 
 		static construct {
+			// This is the directory the images are located in.
 			var base_dir = "/usr/share/gmailnotify";
 
 			try {
@@ -54,6 +101,10 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * GMessage is the Feed representation of a message. It was not used here because it incorporates no visual.
+		 * It's methods also require parameters which do not make sense here. This is why inheritance wasn't used.
+		 **/
 		public MailItem(GMessage mess) {
 			this.author = mess.author;
 			this.subject = mess.subject;
@@ -72,6 +123,10 @@ namespace GmailFeed {
 			create_visual();
 		}
 
+		/**
+		 * Disconnects all of the signals that we added to the visual.
+		 * Without calling this, a MailItem will always have active references and not be deleted.
+		 **/
 		internal void remove_signals() {
 			foreach(var obj in signals.get_keys()) {
 				foreach(var id in signals.get(obj)) {
@@ -81,6 +136,10 @@ namespace GmailFeed {
 			signals.clear();
 		}
 
+		/**
+		 * Build the visual. We use EventBoxes to capture events. The three we care about are enter, leave, and button press.
+		 * We use bools to determine if the events should alter state. This allows us to reactivate the pieces if errors happen.
+		 **/
 		private void create_visual() {
 			Gdk.Color white;
 			Gdk.Color.parse("#fff", out white);
@@ -90,6 +149,7 @@ namespace GmailFeed {
 			var vbox = new VBox(false, 0);
 			hbox.pack_start(vbox, false, false, 5);
 
+			// The subject line
 			var subject_box = new HBox(false, 0);
 			var subject_l = new Label(null);
 			subject_l.set_alignment(0, 0.5f);
@@ -101,6 +161,7 @@ namespace GmailFeed {
 			subject_box.pack_start(subject_e, false, false);
 			vbox.pack_start(subject_box, false, false, 1);
 
+			// The from line, with the star and important icon
 			var from_box = new HBox(false, 0);
 			var from_l = new Label(null);
 			from_l.set_alignment(0, 0.5f);
@@ -113,6 +174,8 @@ namespace GmailFeed {
 			star_e.modify_bg(StateType.NORMAL, white);
 			star_e.add(star_i);
 			from_box.pack_start(star_e, false, false, 3);
+			// On entering, change coloring to half. On exit return to the proper coloring.
+			// If clicked, disable events, a signal will be received to finish the action.
 			var ste = star_e.enter_notify_event.connect(() => {
 				if(star_active) {
 					star_i.pixbuf = STAR_HALF;
@@ -141,6 +204,8 @@ namespace GmailFeed {
 			important_e.modify_bg(StateType.NORMAL, white);
 			important_e.add(important_i);
 			from_box.pack_start(important_e, false, false, 3);
+			// On entering, change coloring to half. On exit return to the proper coloring.
+			// If clicked, disable events, a signal will be received to finish the action.
 			var ie = important_e.enter_notify_event.connect(() => {
 				if(important_active) {
 					important_i.pixbuf = IMPORTANT_HALF;
@@ -165,6 +230,9 @@ namespace GmailFeed {
 			signals.set(important_e, sigid);
 			vbox.pack_start(from_box, false, false);
 
+			// The actions : Mark read, archive, spam, delete
+			// When mousing over an action, underline it.
+			// When clicked, make it italic and disable all actions
 			var actions_box = new HBox(false, 0);
 			var read_l = new Label(null);
 			read_l.set_alignment(0, 0.5f);
@@ -293,6 +361,7 @@ namespace GmailFeed {
 
 			vbox.pack_start(actions_box, false, false, 1);
 
+			// The message
 			var summary_box = new HBox(false, 0);
 			var summary_l = new Label(null);
 			summary_l.set_alignment(0, 0.5f);
@@ -302,33 +371,50 @@ namespace GmailFeed {
 			vbox.pack_start(summary_box, false, false);
 
 			visual = hbox;
+			// Request our width so height calculations return correct answers.
 			visual.width_request = 400;
 		}
 
+		/**
+		 * Star the message, reactivate the star button
+		 **/
 		public void make_starred() {
 			this.starred = true;
 			this.star_active = true;
 			this.star_i.pixbuf = STAR_FULL;
 		}
 
+		/**
+		 * Unstar the message, reactivate the star button
+		 **/
 		public void make_unstarred() {
 			this.starred = false;
 			this.star_active = true;
 			this.star_i.pixbuf = STAR_EMPTY;
 		}
 
+		/**
+		 * Mark the message important, reactivate the button
+		 **/
 		public void make_important() {
 			this.important = true;
 			this.important_active = true;
 			this.important_i.pixbuf = IMPORTANT_FULL;
 		}
 
+		/**
+		 * Mark the message unimportant, reactivate the button
+		 **/
 		public void make_unimportant() {
 			this.important = false;
 			this.important_active = true;
 			this.important_i.pixbuf = IMPORTANT_EMPTY;
 		}
 
+		/**
+		 * Reactivate everything about this message.
+		 * This is called in case of error so that we can try to act again.
+		 **/
 		public void reactivate() {
 			this.actions_active = true;
 			this.important_active = true;
@@ -336,16 +422,30 @@ namespace GmailFeed {
 		}
 	}
 
+	/**
+	 * The Mailbox is a collection of MailItems. They are sorted by time received.
+	 * Actions on the messages are made through the mailbox.
+	 **/
 	public class Mailbox : GLib.Object {
+		/**
+		 * The list has the messages in sorted order.
+		 * the map allows for fast access of the desired message.
+		 **/
 		private Gee.List<MailItem> mail_list;
 		private Gee.Map<string, MailItem> messages;
 
+		/**
+		 * Mailbox message count
+		 **/
 		public int size {
 			get {
 				return mail_list.size;
 			}
 		}
 
+		/**
+		 * Read only view of the mailbox in sorted order
+		 **/
 		public Gee.List<MailItem> items {
 			owned get {
 				return mail_list.read_only_view;
@@ -357,6 +457,9 @@ namespace GmailFeed {
 			this.messages = new HashMap<string, MailItem>();
 		}
 
+		/**
+		 * Adds a message to the mailbox. Places the message at the proper place in the mail list.
+		 **/
 		public void add_message(MailItem m) {
 			if(!messages.has_key(m.id)) {
 				messages[m.id] = m;
@@ -370,6 +473,9 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Gets the mail item with the given id
+		 **/
 		public new MailItem? get(string id) {
 			if(messages.has_key(id)) {
 				return messages[id];
@@ -378,6 +484,9 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Removes the message with the given id
+		 **/
 		public void remove_message(string id) {
 			if(messages.has_key(id)) {
 				MailItem mess = null;
@@ -387,6 +496,9 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Stars the message with the given id
+		 **/
 		public void star_message(string id) {
 			if(messages.has_key(id)) {
 				var mess = messages[id];
@@ -394,6 +506,9 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Unstars the message with the given id
+		 **/
 		public void unstar_message(string id) {
 			if(messages.has_key(id)) {
 				var mess = messages[id];
@@ -401,6 +516,9 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Marks a message important with the given id
+		 **/
 		public void important_message(string id) {
 			if(messages.has_key(id)) {
 				var mess = messages[id];
@@ -408,6 +526,9 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Marks the message with the given id unimportant
+		 **/
 		public void unimportant_message(string id) {
 			if(messages.has_key(id)) {
 				var mess = messages[id];
@@ -415,6 +536,10 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * Reactivates all messages in the mailbox.
+		 * This is called on error to ensure the mailbox is functional again.
+		 **/
 		public void reactivate_all() {
 			foreach(var mess in mail_list) {
 				mess.reactivate();
