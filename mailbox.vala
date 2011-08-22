@@ -42,9 +42,9 @@ namespace GmailFeed {
 			var base_dir = "/usr/share/gmailnotify";
 
 			try {
-				STAR_FULL = new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_full.png", 16, 16);
-				STAR_EMPTY = new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_empty.png", 16, 16);
-				STAR_HALF = new Gdk.Pixbuf.from_file_at_size("/usr/share/gmailnotify/star_half.png", 16, 16);
+				STAR_FULL = new Gdk.Pixbuf.from_file_at_size("%s/star_full.png".printf(base_dir), 16, 16);
+				STAR_EMPTY = new Gdk.Pixbuf.from_file_at_size("%s/star_empty.png".printf(base_dir), 16, 16);
+				STAR_HALF = new Gdk.Pixbuf.from_file_at_size("%s/star_half.png".printf(base_dir), 16, 16);
 
 				IMPORTANT_FULL = new Gdk.Pixbuf.from_file_at_size("%s/important_full.png".printf(base_dir), 20, 11);
 				IMPORTANT_EMPTY = new Gdk.Pixbuf.from_file_at_size("%s/important_empty.png".printf(base_dir), 20, 11);
