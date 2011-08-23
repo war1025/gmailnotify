@@ -9,14 +9,25 @@ namespace GmailFeed {
 		UNKNOWN
 	}
 
+	/**
+	 * We want a username and password but we aren't picky about how we get it.
+	 * Probably this is an unneccesary design step, but it doesn't hurt anything and gives some added flexibility.
+	 **/
 	public delegate string[] AuthDelegate();
 
+	/**
+	 * The Feed is what actually logs in, connects to the atom feed, and sends messages to gmail to take desired actions.
+	 **/
 	public class Feed : Object {
 		public signal void new_message(GMessage msg);
 		public signal void message_starred(string id);
 		public signal void message_unstarred(string id);
 		public signal void message_important(string id);
 		public signal void message_unimportant(string id);
+		/**
+		 * There is a generic message removed signal, along with signals for the specific reason a message was removed.
+		 * This is so you can act generally or specifically without needing to duplicate excessive amounts of code.
+		 **/
 		public signal void message_removed(string id);
 		public virtual signal void message_read(string id) {
 			message_removed(id);
@@ -30,16 +41,39 @@ namespace GmailFeed {
 		public virtual signal void message_spammed(string id) {
 			message_removed(id);
 		}
+		/**
+		 * If an error occurs with the connection, we will send this signal.
+		 **/
 		public signal void connection_error(ConnectionError code);
+		/**
+		 * Notification that we have logged in successfully. You can't really do anything useful until you log in.
+		 **/
 		public signal void login_success();
+		/**
+		 * During an update several new messages might be added and other removed, this signal indicates that all of
+		 * those actions are complete so that you can act once rather than many times.
+		 **/
 		public signal void update_complete();
 
+		/**
+		 * The session and cookies for our connection to gmail.
+		 **/
 		private Session session;
 		private CookieJar cookiejar;
+		/**
+		 * Map message ids to GMessage objects. We have two maps so that we can do a swap and compare to see what is new
+		 * and what we already have. This allows us to keep existing GMessages and not make new instances every time.
+		 **/
 		private Gee.Map<string, GMessage> messages;
 		private Gee.Map<string, GMessage> messages2;
+		/**
+		 * This string is important for authentication when we are acting on messages
+		 **/
 		private string gmail_at;
 
+		/**
+		 * How many messages are in the feed
+		 **/
 		public int count {
 			get {
 				return messages.size;
@@ -57,13 +91,24 @@ namespace GmailFeed {
 			gmail_at = "";
 		}
 
+		/**
+		 * Log into gmail.
+		 * The urls to contact were obtained from the checkgmail application (http://checkgmail.sourceforge.net/)
+		 * On which this application is heavily based.
+		 **/
 		public bool login(AuthDelegate ad) {
+			// Contact the login, this will get us a GALX cookie.
 			var message = new Message("GET", "https://www.google.com/accounts/ServiceLogin?service=mail");
 			session.send_message(message);
 
 			gmail_at = "";
 			var galx = "";
 
+			/**
+			 * Grab the GALX value.
+			 * Also remove the GMAIL_AT cookie if we have one because otherwise we will use that value
+			 * and not obtain a new one. This allows a user to relogin with invalid credentials. Which seems bad.
+			 **/
 			SList<Cookie> cookies = cookiejar.all_cookies();
 			for(int i = 0; i < cookies.length(); i++) {
 				unowned Cookie c = cookies.nth_data(i);
@@ -74,6 +119,10 @@ namespace GmailFeed {
 				}
 			}
 
+			/**
+			 * A very long post url where we put the login credentials to get a GMAIL_AT cookie that
+			 * authorizes us to read the feed and modify the mailbox
+			 **/
 			message = new Message("POST", "https://www.google.com/accounts/ServiceLogin?service=mail");
 			var p1 = "ltmpl=default&ltmplcache=2&continue=http://mail.google.com/mail/?ui%3Dhtml&service=mail&rm=false&scc=1&GALX=";
 			var p2 ="&PersistentCookie=yes&rmShown=1&signIn=Sign+in&asts=";
@@ -94,9 +143,14 @@ namespace GmailFeed {
 				}
 			}
 
+			/**
+			 * We have only logged in successfully if we have a gmail_at string
+			 * Otherwise there was an error
+			 **/
 			if(gmail_at != "") {
 				login_success();
 			} else {
+				// We get a 200 code even if we weren't authorized so change this to a 401 so we know the credentials were wrong.
 				if(message.status_code == 200) {
 					handle_error(401);
 				} else {
@@ -106,6 +160,10 @@ namespace GmailFeed {
 			return gmail_at != "";
 		}
 
+		/**
+		 * Look at the feed, parse out the messages. Save any new messages. Remove any messages that aren't in the
+		 * feed anymore.
+		 **/
 		public void update() {
 			var message = new Message("GET", "https://mail.google.com/mail/feed/atom");
 			session.send_message(message);
@@ -170,6 +228,10 @@ namespace GmailFeed {
 
 			}
 
+			/**
+			 * Here we check for messages that we used to have but that aren't in the feed anymore.
+			 * These were removed by an outside source.
+			 **/
 			foreach(var k in messages.keys) {
 				if(!messages2.has_key(k)) {
 					message_removed(k);
@@ -185,6 +247,10 @@ namespace GmailFeed {
 			update_complete();
 		}
 
+		/**
+		 * Methods for acting on messages.
+		 * Handles the sending of the message and success or error handling afterwards
+		 **/
 		public bool mark_read(string idx) {
 			if(messages.has_key(idx)) {
 				var mess = messages[idx].mark_read(gmail_at);
@@ -281,6 +347,9 @@ namespace GmailFeed {
 			return false;
 		}
 
+		/**
+		 * The methods above call this method so we can send an Error status based on the http status code we got.
+		 **/
 		private void handle_error(uint code) {
 			if(code == 401) {
 				connection_error(ConnectionError.UNAUTHORIZED);
@@ -303,6 +372,9 @@ namespace GmailFeed {
 	}
 
 
+	/**
+	 * GMessage tracks the state of a message while it is in our feed.
+	 **/
 	public class GMessage : Object {
 		public string author {get; private set; default = "No Author";}
 		public string subject {get; private set; default = "No Subject";}
@@ -313,6 +385,9 @@ namespace GmailFeed {
 		public bool starred {get; private set; default = false;}
 		public bool important {get; private set; default = false;}
 
+		/**
+		 * Construct a message from the relevant data.
+		 **/
 		public GMessage(string author, string subject, string summary, string id, DateTime time) {
 			this.author = author;
 			this.subject = subject;
@@ -321,6 +396,9 @@ namespace GmailFeed {
 			this.time = time;
 		}
 
+		/**
+		 * Copy constructor
+		 **/
 		public GMessage.copy(GMessage other) {
 			this.author = other.author;
 			this.subject = other.subject;
@@ -350,10 +428,16 @@ namespace GmailFeed {
 			return sb.str;
 		}
 
+		/**
+		 * Comparable based on time received
+		 **/
 		public int compare(GMessage other) {
 			return this.time.compare(other.time);
 		}
 
+		/**
+		 * To act we need to send a post message with the proper action and gmail_at authentication parameters.
+		 **/
 		private Message act(string action, string gmail_at) {
 			var message = new Message("POST", "%s%s%s%s%s".printf("https://mail.google.com/mail/?ik=ae2cd25c90&at=", gmail_at,
 									"&view=up&act=", action, "&search=all"));
@@ -374,6 +458,10 @@ namespace GmailFeed {
 		// Not Important -> mani
 		// Spam -> sp
 
+		/**
+		 * These methods construct a proper Soup Message for completing the desired action.
+		 * The feed can then send the message it receives from the call and act on the response
+		 **/
 		internal Message mark_read(string gmail_at) {
 			this.read = true;
 			return act("rd", gmail_at);

@@ -2,6 +2,9 @@
 
 namespace GmailFeed {
 
+	/**
+	 * Types of actions that we want the feed to perfom
+	 **/
 	internal enum FeedActionType {
 		READ,
 		STAR,
@@ -14,17 +17,26 @@ namespace GmailFeed {
 		QUIT
 	}
 
+	/**
+	 * An action has an id for the message to act on and the type of action that should be taken
+	 **/
 	internal class FeedAction : GLib.Object {
 		public string id {get; set; default = "";}
 		public FeedActionType action {get; set;}
 	}
 
+	/**
+	 * For the login action, we need an extra string for the password
+	 **/
 	internal class LoginAction : FeedAction {
 		public string pass {get; set; default = "";}
 	}
 
-	internal delegate void FeedDelegate(string id);
-
+	/**
+	 * FeedController exists because we need a way to separate the GUI thread and the message thread.
+	 * We use an async queue to get actions to the message thread then use Idle callbacks to get response signals
+	 * back on the GUI thread.
+	 **/
 	public class FeedController : GLib.Object {
 		public signal void new_message(GMessage msg);
 		public signal void message_starred(string id);
@@ -41,10 +53,16 @@ namespace GmailFeed {
 		public signal void feed_closed();
 		public signal void update_complete();
 
+		/**
+		 * Our feed object. The queue we use to go between threads, and the thread the feed runs on.
+		 **/
 		private Feed feed;
 		private AsyncQueue<FeedAction> queue;
 		private unowned Thread<void*> thread;
 
+		/**
+		 * Create the feed and the feed thread and start them running
+		 **/
 		public FeedController() {
 			this.feed = new Feed();
 			this.queue = new AsyncQueue<FeedAction>();
@@ -59,6 +77,10 @@ namespace GmailFeed {
 
 		}
 
+		/**
+		 * Take items off the queue, perform the specified action, repeat.
+		 * Responses happen as signals so we don't need to worry about them here.
+		 **/
 		private void *run() {
 			while(true) {
 				var data = queue.pop();
@@ -85,12 +107,19 @@ namespace GmailFeed {
 			}
 		}
 
+		/**
+		 * To shutdown we need to get the message thread to stop. We want to let any queued actions complete first though.
+		 **/
 		public void shutdown() {
 			var act = new FeedAction();
 			act.action = FeedActionType.QUIT;
 			queue.push(act);
 		}
 
+		/**
+		 * We need to get signals onto a different thread. We do this by adding Idle callbacks with the same content which
+		 * will run on the GUI thread.
+		 **/
 		private void connect_signals() {
 			this.feed.new_message.connect((m) => {
 				Idle.add(() => {
@@ -185,6 +214,9 @@ namespace GmailFeed {
 
 		}
 
+		/**
+		 * These methods take care of getting the correct info into the queue to complete the desired actions.
+		 **/
 		public void update() {
 			var act = new FeedAction();
 			act.action = FeedActionType.UPDATE;
@@ -242,6 +274,9 @@ namespace GmailFeed {
 			queue.push(la);
 		}
 
+		/**
+		 * Just a test main method, should probably be removed.
+		 **/
 		public static void main(string[] args) {
 			var loop = new GLib.MainLoop();
 			var feed = new FeedController();

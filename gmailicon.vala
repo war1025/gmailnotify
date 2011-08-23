@@ -2,22 +2,60 @@ using Gtk;
 
 namespace GmailFeed {
 
+	/**
+	 * The GmailIcon represents the status icon that actually sits in the notification area along
+	 * with the popup that displays messages when they are received.
+	 **/
 	public class GmailIcon : GLib.Object {
+		/**
+		 * The icon that sits in the notification area
+		 **/
 		private StatusIcon icon;
+		/**
+		 * The right click menu
+		 **/
 		private Menu popup_menu;
+		/**
+		 * The mailbox where we store the mail we get
+		 **/
 		private Mailbox mailbox;
+		/**
+		 * The feed we are connected to so we can get mail
+		 **/
 		private FeedController feed;
 
+		/**
+		 * The window and box we will display when the user wants to view their mail.
+		 * The window is needed for showing and hiding, while the message_box is needed
+		 * so we can access its contents and update them as needed.
+		 **/
 		private Window message_window;
 		private VBox message_box;
+		/**
+		 * Position of the top left corner of the window
+		 **/
 		private int window_x;
 		private int window_y;
+		/**
+		 * If an update is requested, the message window will be redrawn.
+		 * Normally the window is only drawn when an update_complete signal is received.
+		 **/
 		private bool request_update;
 
+		/**
+		 * The dialog box for logging in. Also the delegate for passing our credentials to the feed
+		 **/
 		private Dialog login_dialog;
 		private AuthDelegate ad;
+		/**
+		 * Update is called automatically every X seconds once logged in. We need to cancel this action
+		 * if we lose our connection for some reason. So we need to keep track of its id.
+		 **/
 		private uint timer_id;
 
+		/**
+		 * The pictures to show in the icon
+		 **/
 		private static string MAIL_ICON = "/usr/share/gmailnotify/mail.png";
 		private static string NO_MAIL_ICON = "/usr/share/gmailnotify/nomail.png";
 		private static string ERROR_ICON = "/usr/share/gmailnotify/error.png";
@@ -39,6 +77,11 @@ namespace GmailFeed {
 			icon.set_visible(true);
 		}
 
+		/**
+		 * Constructs the login dialog. This is just a dialog where the user enters their name and password.
+		 * Since we keep the box around, we have their information saved and can show it later so if reauthentication is
+		 * needed they just need to click login and not fill out their info again.
+		 **/
 		private void build_login_dialog() {
 			login_dialog = new Dialog.with_buttons("Login", null, DialogFlags.MODAL);
 			try {
@@ -80,6 +123,9 @@ namespace GmailFeed {
 			};
 		}
 
+		/**
+		 * Calls the login dialog, if the login button is pressed, try to log in.
+		 **/
 		public void login() {
 			var response = login_dialog.run();
 
@@ -90,6 +136,10 @@ namespace GmailFeed {
 			login_dialog.hide();
 		}
 
+		/**
+		 * Builds the status icon. This involves building the icon and the popup menu.
+		 * We also connect the appropriate signals to make it functional.
+		 **/
 		private void build_icon() {
 			icon.set_from_file(NO_MAIL_ICON);
 			icon.set_tooltip_text("Disconnected...");
@@ -107,10 +157,17 @@ namespace GmailFeed {
 				icon.set_tooltip_text("Updating...");
 			});
 
+			/**
+			 * We send the feed a shutdown signal. It sends us a signal back when it is shutdown.
+			 * Then we receive that signal and stop ourselves.
+			 **/
 			quit.activate.connect(() => {
 				feed.shutdown();
 			});
 
+			/**
+			 * This is the shutdown signal that we receive from the feed
+			 **/
 			feed.feed_closed.connect(() => {
 				Gtk.main_quit();
 			});
@@ -133,6 +190,11 @@ namespace GmailFeed {
 				popup_menu.popup(null, null, icon.position_menu, b, t);
 			});
 
+			/**
+			 * When the icon is clicked, we want to show the messages if there are any, otherwise we don't want to
+			 * show an empty window. We resize the window to too small before we show it so that it sizes itself
+			 * properly and doesn't have extra white space
+			 **/
 			icon.activate.connect(() => {
 				if(mailbox.size > 0) {
 					if(message_window.visible) {
@@ -146,6 +208,9 @@ namespace GmailFeed {
 
 		}
 
+		/**
+		 * Sets up some basic things for the window that will show the messages.
+		 **/
 		private void build_message_window() {
 			Gdk.Color white;
 			Gdk.Color.parse("#fff", out white);
@@ -154,6 +219,11 @@ namespace GmailFeed {
 			message_box = new VBox(false, 5);
 			ebox.modify_bg(StateType.NORMAL, white);
 
+			/**
+			 * We want the window to hide if we mouse out of it, but we don't want it to happen immediately in case
+			 * the user accidentally goes out of the window.
+			 * So we use a timeout which starts when the user leaves the window, but is cancelled if they re-enter it.
+			 **/
 			uint event_id = 0;
 			bool id_set = false;
 
@@ -179,6 +249,10 @@ namespace GmailFeed {
 			ebox.add(message_box);
 			message_window.add(ebox);
 
+			/**
+			 * Here we obtain the position of the notification icon. We need to wait for the size changed
+			 * event because initially it is not displayed in the notification area so the position info is invalid.
+			 **/
 			icon.size_changed.connect(() => {
 				Gdk.Rectangle rect;
 				Gdk.Screen screen;
@@ -197,7 +271,11 @@ namespace GmailFeed {
 
 		}
 
+		/**
+		 * Set up connections between the mailbox and the feed
+		 **/
 		private void connect_feed_mailbox_signals() {
+			// When we get a new message we need to connect its signals to the feed so they will do something useful
 			feed.new_message.connect((m) => {
 				var mail = new MailItem(m);
 				var id = mail.id;
@@ -228,6 +306,12 @@ namespace GmailFeed {
 				});
 			});
 
+			/**
+			 * When we get a new message we also need to update the message_box.
+			 * Since the previous signal connection added the message to the mailbox, and the mailbox is sorted,
+			 * we look through the mailbox and find where this item should be.
+			 * Then reposition the visual in the message_box so it is displayed in the correct position
+			 **/
 			feed.new_message.connect((m) => {
 				var visual = mailbox[m.id].visual;
 				int c = 0;
@@ -241,6 +325,9 @@ namespace GmailFeed {
 				}
 			});
 
+			/**
+			 * A hacky way to display a notification when new mail is received
+			 **/
 			feed.new_message.connect((m) => {
 				try {
 					Process.spawn_command_line_sync("notify-send -i %s \"%s\" \"<small>%s</small>\"".printf(MAIL_ICON, m.author, m.subject));
@@ -248,6 +335,12 @@ namespace GmailFeed {
 				}
 			});
 
+			/**
+			 * The following signals are always followed by a message_removed signal. In that signal we will check
+			 * if an update of the window is needed. During a normal update several messages might be removed, so we
+			 * don't want to redraw the window until they are all done, but for an individual message we would like to
+			 * redraw the window as soon as we have confirmation that it was removed.
+			 **/
 			feed.message_read.connect(() => {
 				request_update = true;
 			});
@@ -264,6 +357,10 @@ namespace GmailFeed {
 				request_update = true;
 			});
 
+			/**
+			 * We need to remove the message from our message window, since it was removed from the feed
+			 * This needs to happen before we remove the message from our mailbox since that is our link to the visual
+			 **/
 			feed.message_removed.connect((id) => {
 				var visual = mailbox[id].visual;
 				message_box.remove(visual);
@@ -273,10 +370,16 @@ namespace GmailFeed {
 				}
 			});
 
+			/**
+			 * The message is removed from the feed, so remove it from the mailbox.
+			 **/
 			feed.message_removed.connect((id) => {
 				mailbox.remove_message(id);
 			});
 
+			/**
+			 * Here we update everything if we have been requested to
+			 **/
 			feed.message_removed.connect(() => {
 				if(request_update) {
 					var count = mailbox.size;
@@ -303,6 +406,9 @@ namespace GmailFeed {
 				request_update = false;
 			});
 
+			/**
+			 * Signals to toggle the starred / important status of a message
+			 **/
 			feed.message_starred.connect((id) => {
 				mailbox.star_message(id);
 			});
@@ -319,11 +425,19 @@ namespace GmailFeed {
 				mailbox.unimportant_message(id);
 			});
 
+			/**
+			 * If a connection error occurs we need to reactivate any messages that had pending requests since we
+			 * don't know if the action went through or not. Otherwise we could have messages stuck in the mailbox that
+			 * we have no way of removing without a restart
+			 **/
 			feed.connection_error.connect(() => {
 				mailbox.reactivate_all();
 			});
 		}
 
+		/**
+		 * Connect signals from the feed that we want to alter the icon or tooltip in some way.
+		 **/
 		private void connect_feed_icon_signals() {
 			feed.login_success.connect(() => {
 				icon.set_from_file(NO_MAIL_ICON);
@@ -335,6 +449,10 @@ namespace GmailFeed {
 				});
 			});
 
+			/**
+			 * If there is a connection error, show the login box and remove the update timer.
+			 * If the user cancels the login request, they can select login from the right click menu later.
+			 **/
 			feed.connection_error.connect(() => {
 				icon.set_from_file(ERROR_ICON);
 				icon.set_tooltip_text("Connection Error...");
