@@ -131,6 +131,7 @@ namespace GmailFeed {
 
 			if(response == 1) {
 				feed.login(ad);
+				icon.set_tooltip_text("Logging In...");
 			}
 
 			login_dialog.hide();
