@@ -52,6 +52,7 @@ namespace GmailFeed {
 		 * if we lose our connection for some reason. So we need to keep track of its id.
 		 **/
 		private uint timer_id;
+		private bool timer_set;
 
 		/**
 		 * The pictures to show in the icon
@@ -66,6 +67,7 @@ namespace GmailFeed {
 			feed = new FeedController();
 			popup_menu = new Menu();
 			message_window = new Window(WindowType.POPUP);
+			timer_set = false;
 
 			build_icon();
 			build_login_dialog();
@@ -444,10 +446,14 @@ namespace GmailFeed {
 				icon.set_from_file(NO_MAIL_ICON);
 				icon.set_tooltip_text("Updating...");
 				feed.update();
+				if(timer_set) {
+					Source.remove(timer_id);
+				}
 				timer_id = Timeout.add_seconds(120, () => {
 					feed.update();
 					return true;
 				});
+				timer_set = true;
 			});
 
 			/**
@@ -457,8 +463,11 @@ namespace GmailFeed {
 			feed.connection_error.connect(() => {
 				icon.set_from_file(ERROR_ICON);
 				icon.set_tooltip_text("Connection Error...");
+				if(timer_set) {
+					Source.remove(timer_id);
+					timer_set = false;
+				}
 				login();
-				Source.remove(timer_id);
 			});
 
 			feed.update_complete.connect(() => {
