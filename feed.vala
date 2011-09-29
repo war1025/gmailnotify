@@ -93,11 +93,9 @@ namespace GmailFeed {
 
 		/**
 		 * Log into gmail.
-		 * The urls to contact were obtained from the checkgmail application (http://checkgmail.sourceforge.net/)
-		 * On which this application is heavily based.
 		 **/
 		public bool login(AuthDelegate ad) {
-			// Contact the login, this will get us a GALX cookie.
+			// Contact the login, this will give us the form info to submit
 			var message = new Message("GET", "https://www.google.com/accounts/ServiceLogin?service=mail");
 			message.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+");
 
@@ -108,6 +106,7 @@ namespace GmailFeed {
 				return false;
 			}
 
+			// Reset the gmail_at if it exists
 			gmail_at = "";
 
 			var cookies = cookiejar.all_cookies();
@@ -118,8 +117,7 @@ namespace GmailFeed {
 				}
 			}
 
-			var at = ad();
-
+			// Put all of our form data into this table so we can encode and submit it
 			var table = new HashTable<string, string>(str_hash, str_equal);
 
 			var form = /<form id=\"gaia_loginform\" action=\"([^\"]+)\".*<\/form>/;
@@ -152,16 +150,17 @@ namespace GmailFeed {
 				table.set(name, val);
 			} while(info.next());
 
+			// Run the authentication delegate to get our credentials.
+			var at = ad();
+
+			// Fill in login data, change the continue link so it goes to gmail
 			table.set("Email", at[0]);
 			table.set("Passwd", at[1]);
 			table.set("continue", "http://mail.google.com/mail/?");
 
 			var fm = Form.encode_hash(table);
 
-			/**
-			 * A very long post url where we put the login credentials to get a GMAIL_AT cookie that
-			 * authorizes us to read the feed and modify the mailbox
-			 **/
+			// Send the form
 			message = new Message("POST", action);
 
 
@@ -170,6 +169,7 @@ namespace GmailFeed {
 
 			session.send_message(message);
 
+			// Get our gmail_at cookie
 			cookies = cookiejar.all_cookies();
 			for(int i = 0; i < cookies.length(); i++) {
 				unowned Cookie c = cookies.nth_data(i);
