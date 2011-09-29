@@ -99,39 +99,74 @@ namespace GmailFeed {
 		public bool login(AuthDelegate ad) {
 			// Contact the login, this will get us a GALX cookie.
 			var message = new Message("GET", "https://www.google.com/accounts/ServiceLogin?service=mail");
+			message.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+");
+
 			session.send_message(message);
 
-			gmail_at = "";
-			var galx = "";
+			if(message.status_code != 200) {
+				handle_error(message.status_code);
+				return false;
+			}
 
-			/**
-			 * Grab the GALX value.
-			 * Also remove the GMAIL_AT cookie if we have one because otherwise we will use that value
-			 * and not obtain a new one. This allows a user to relogin with invalid credentials. Which seems bad.
-			 **/
-			SList<Cookie> cookies = cookiejar.all_cookies();
+			gmail_at = "";
+
+			var cookies = cookiejar.all_cookies();
 			for(int i = 0; i < cookies.length(); i++) {
 				unowned Cookie c = cookies.nth_data(i);
-				if(c.name == "GALX") {
-					galx = URI.encode(c.value, null);
-				} else if(c.name == "GMAIL_AT") {
+				if(c.name == "GMAIL_AT") {
 					cookiejar.delete_cookie(c);
 				}
 			}
+
+			var at = ad();
+
+			var table = new HashTable<string, string>(str_hash, str_equal);
+
+			var form = /<form id=\"gaia_loginform\" action=\"([^\"]+)\".*<\/form>/;
+			var inputx = /<input[^<>]+>/;
+			var namex = /name=\"([^\"]+)\"/;
+			var valx = /value=[\'\"]([^\'\"]*)[\'\"]/;
+
+			var body = (string) message.response_body.data;
+
+			body = body.replace("\n","");
+
+			MatchInfo info = null;
+			MatchInfo namei = null;
+			MatchInfo vali = null;
+
+			form.match(body, 0, out info);
+
+			var gaiaform = info.fetch(0);
+			var action = info.fetch(1);
+
+			inputx.match(gaiaform, 0, out info);
+
+			do {
+				var field = info.fetch(0);
+				namex.match(field, 0, out namei);
+				valx.match(field, 0, out vali);
+
+				var name = namei.fetch(1);
+				var val = (vali.matches()) ? vali.fetch(1) : "";
+				table.set(name, val);
+			} while(info.next());
+
+			table.set("Email", at[0]);
+			table.set("Passwd", at[1]);
+			table.set("continue", "http://mail.google.com/mail/?");
+
+			var fm = Form.encode_hash(table);
 
 			/**
 			 * A very long post url where we put the login credentials to get a GMAIL_AT cookie that
 			 * authorizes us to read the feed and modify the mailbox
 			 **/
-			message = new Message("POST", "https://www.google.com/accounts/ServiceLogin?service=mail");
-			var p1 = "ltmpl=default&ltmplcache=2&continue=http://mail.google.com/mail/?ui%3Dhtml&service=mail&rm=false&scc=1&GALX=";
-			var p2 ="&PersistentCookie=yes&rmShown=1&signIn=Sign+in&asts=";
+			message = new Message("POST", action);
 
-			var at = ad();
 
-			var post_body = "%s%s&Email=%s&Passwd=%s%s".printf(p1, galx, URI.encode(at[0], null), URI.encode(at[1], null), p2);
-
-			message.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, post_body.data);
+			message.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, fm.data);
+			message.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+");
 
 			session.send_message(message);
 
