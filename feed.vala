@@ -56,6 +56,23 @@ namespace GmailFeed {
 		public signal void update_complete();
 
 		/**
+		 * Regexes used to parse login
+		 **/
+		private static Regex form = /(?m)<form id="gaia_loginform" action="([^"]+)"(?s).*<\/form>/;
+		private static Regex inputx = /(?m)<input[^<>]+>/;
+		private static Regex namex = /(?m)name="([^"]+)"/;
+		private static Regex valx = /(?m)value=['"]([^'"]*)['"]/;
+
+		/**
+		 * Regexes used to parse feed updates
+		 **/
+		private static Regex midx = /<link.*message_id=([^&]+)&.*\/>/;
+		private static Regex authorx = /<name>([^<]*)<\/name>/;
+		private static Regex summaryx = /<summary>([^<]*)<\/summary>/;
+		private static Regex titlex = /<title>([^<]*)<\/title>/;
+		private static Regex timex = /<issued>([^<]*)<\/issued>/;
+
+		/**
 		 * The session and cookies for our connection to gmail.
 		 **/
 		private Session session;
@@ -120,14 +137,7 @@ namespace GmailFeed {
 			// Put all of our form data into this table so we can encode and submit it
 			var table = new HashTable<string, string>(str_hash, str_equal);
 
-			var form = /<form id=\"gaia_loginform\" action=\"([^\"]+)\".*<\/form>/;
-			var inputx = /<input[^<>]+>/;
-			var namex = /name=\"([^\"]+)\"/;
-			var valx = /value=[\'\"]([^\'\"]*)[\'\"]/;
-
 			var body = (string) message.response_body.data;
-
-			body = body.replace("\n","");
 
 			MatchInfo info = null;
 			MatchInfo namei = null;
@@ -214,40 +224,32 @@ namespace GmailFeed {
 			messes = messes[1:messes.length];
 
 			foreach(string s in messes) {
-				var link = /<link.*\/>/;
-				var href = /href=\".*\"/;
-				var id = /message_id=.*&/;
 
 				MatchInfo info = null;
 
-				link.match(s, 0, out info);
-				var sub = info.fetch(0);
-				href.match(sub, 0, out info);
-				sub = info.fetch(0);
-				id.match(sub, 0, out info);
-				sub = info.fetch(0);
-				var mid = sub.substring(11, sub.index_of("&") - 11);
+				midx.match(s, 0, out info);
+				var mid = info.fetch(1);
 
 				if(messages.has_key(mid)) {
 					messages2[mid] = messages[mid];
 					continue;
 				}
 
-				int start = s.index_of("<name>") + 6;
-				int end = s.index_of("</name>");
-				var author = s.substring(start, end - start);
+				/**
+				 * These regexes are defined as private static variables since they don't ever need to change
+				 * This way they are only generated once
+				 **/
+				authorx.match(s, 0, out info);
+				var author = info.fetch(1);
 
-				start = s.index_of("<summary>") + 9;
-				end = s.index_of("</summary>");
-				var summary = s.substring(start, end - start);
+				summaryx.match(s, 0, out info);
+				var summary = info.fetch(1);
 
-				start = s.index_of("<title>") + 7;
-				end = s.index_of("</title>");
-				var subject = s.substring(start, end - start);
+				titlex.match(s, 0, out info);
+				var subject = info.fetch(1);
 
-				start = s.index_of("<issued>") + 8;
-				end = s.index_of("</issued>");
-				sub = s.substring(start, end - start);
+				timex.match(s, 0, out info);
+				var sub = info.fetch(1);
 
 				var time = new DateTime.local(int.parse(sub.substring(0, 4)),
 												int.parse(sub.substring(5, 2)),
