@@ -48,7 +48,7 @@ namespace GmailFeed {
 		/**
 		 * Notification that we have logged in successfully. You can't really do anything useful until you log in.
 		 **/
-		public signal void login_success();
+		public signal void login_success(string username);
 		/**
 		 * During an update several new messages might be added and other removed, this signal indicates that all of
 		 * those actions are complete so that you can act once rather than many times.
@@ -87,6 +87,7 @@ namespace GmailFeed {
 		 * This string is important for authentication when we are acting on messages
 		 **/
 		private string gmail_at;
+		private string gmail_ik;
 
 		/**
 		 * How many messages are in the feed
@@ -112,6 +113,13 @@ namespace GmailFeed {
 		 * Log into gmail.
 		 **/
 		public bool login(AuthDelegate ad) {
+			// Bye bye all of the old cookies
+			var cookies = cookiejar.all_cookies();
+			for(int i = 0; i < cookies.length(); i++) {
+				unowned Cookie c = cookies.nth_data(i);
+				cookiejar.delete_cookie(c);
+			}
+
 			// Contact the login, this will give us the form info to submit
 			var message = new Message("GET", "https://www.google.com/accounts/ServiceLogin?service=mail");
 			message.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+");
@@ -125,14 +133,6 @@ namespace GmailFeed {
 
 			// Reset the gmail_at if it exists
 			gmail_at = "";
-
-			var cookies = cookiejar.all_cookies();
-			for(int i = 0; i < cookies.length(); i++) {
-				unowned Cookie c = cookies.nth_data(i);
-				if(c.name == "GMAIL_AT") {
-					cookiejar.delete_cookie(c);
-				}
-			}
 
 			// Put all of our form data into this table so we can encode and submit it
 			var table = new HashTable<string, string>(str_hash, str_equal);
@@ -166,7 +166,7 @@ namespace GmailFeed {
 			// Fill in login data, change the continue link so it goes to gmail
 			table.set("Email", at[0]);
 			table.set("Passwd", at[1]);
-			table.set("continue", "http://mail.google.com/mail/?");
+			table.set("continue", "http://mail.google.com/mail/?shva=1");
 
 			var fm = Form.encode_hash(table);
 
@@ -178,6 +178,12 @@ namespace GmailFeed {
 			message.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+");
 
 			session.send_message(message);
+
+			var ikx = /GLOBALS=[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,"([^"]*)","([^"]*)/;
+			ikx.match((string) message.response_body.data, 0, out info);
+
+			gmail_ik = info.fetch(1);
+			var username = info.fetch(2);
 
 			// Get our gmail_at cookie
 			cookies = cookiejar.all_cookies();
@@ -193,7 +199,7 @@ namespace GmailFeed {
 			 * Otherwise there was an error
 			 **/
 			if(gmail_at != "") {
-				login_success();
+				login_success(username);
 			} else {
 				// We get a 200 code even if we weren't authorized so change this to a 401 so we know the credentials were wrong.
 				if(message.status_code == 200) {
@@ -290,7 +296,7 @@ namespace GmailFeed {
 		 **/
 		public bool mark_read(string idx) {
 			if(messages.has_key(idx)) {
-				var mess = messages[idx].mark_read(gmail_at);
+				var mess = messages[idx].mark_read(gmail_at, gmail_ik);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
 					handle_error(mess.status_code);
@@ -306,7 +312,7 @@ namespace GmailFeed {
 		public bool toggle_important(string idx) {
 			if(messages.has_key(idx)) {
 				var m = messages[idx];
-				var mess = m.toggle_important(gmail_at);
+				var mess = m.toggle_important(gmail_at, gmail_ik);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
 					handle_error(mess.status_code);
@@ -324,7 +330,7 @@ namespace GmailFeed {
 		public bool toggle_starred(string idx) {
 			if(messages.has_key(idx)) {
 				var m = messages[idx];
-				var mess = m.toggle_starred(gmail_at);
+				var mess = m.toggle_starred(gmail_at, gmail_ik);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
 					handle_error(mess.status_code);
@@ -341,7 +347,7 @@ namespace GmailFeed {
 
 		public bool archive(string idx) {
 			if(messages.has_key(idx)) {
-				var mess = messages[idx].archive(gmail_at);
+				var mess = messages[idx].archive(gmail_at, gmail_ik);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
 					handle_error(mess.status_code);
@@ -356,7 +362,7 @@ namespace GmailFeed {
 
 		public bool trash(string idx) {
 			if(messages.has_key(idx)) {
-				var mess = messages[idx].trash(gmail_at);
+				var mess = messages[idx].trash(gmail_at, gmail_ik);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
 					handle_error(mess.status_code);
@@ -371,7 +377,7 @@ namespace GmailFeed {
 
 		public bool spam(string idx) {
 			if(messages.has_key(idx)) {
-				var mess = messages[idx].spam(gmail_at);
+				var mess = messages[idx].spam(gmail_at, gmail_ik);
 				session.send_message(mess);
 				if(mess.status_code != 200) {
 					handle_error(mess.status_code);
@@ -475,9 +481,9 @@ namespace GmailFeed {
 		/**
 		 * To act we need to send a post message with the proper action and gmail_at authentication parameters.
 		 **/
-		private Message act(string action, string gmail_at) {
-			var message = new Message("POST", "%s%s%s%s%s".printf("https://mail.google.com/mail/?ik=ae2cd25c90&at=", gmail_at,
-									"&view=up&act=", action, "&search=all"));
+		private Message act(string action, string gmail_at, string gmail_ik) {
+			var message = new Message("POST", "%s%s%s%s%s%s%s".printf("https://mail.google.com/mail/?ik=", gmail_ik,
+									"&at=", gmail_at, "&view=up&act=", action, "&search=all"));
 
 			var m_body = "t=%s".printf(this.id);
 
@@ -499,33 +505,33 @@ namespace GmailFeed {
 		 * These methods construct a proper Soup Message for completing the desired action.
 		 * The feed can then send the message it receives from the call and act on the response
 		 **/
-		internal Message mark_read(string gmail_at) {
+		internal Message mark_read(string gmail_at, string gmail_ik) {
 			this.read = true;
-			return act("rd", gmail_at);
+			return act("rd", gmail_at, gmail_ik);
 		}
 
-		internal Message toggle_starred(string gmail_at) {
-			var mess = act(starred ? "xst" : "st", gmail_at);
+		internal Message toggle_starred(string gmail_at, string gmail_ik) {
+			var mess = act(starred ? "xst" : "st", gmail_at, gmail_ik);
 			this.starred = !this.starred;
 			return mess;
 		}
 
-		internal Message toggle_important(string gmail_at) {
-			var mess = act(important ? "mani" : "mai", gmail_at);
+		internal Message toggle_important(string gmail_at, string gmail_ik) {
+			var mess = act(important ? "mani" : "mai", gmail_at, gmail_ik);
 			this.important = !this.important;
 			return mess;
 		}
 
-		internal Message archive(string gmail_at) {
-			return act("rc_%5Ei", gmail_at);
+		internal Message archive(string gmail_at, string gmail_ik) {
+			return act("rc_%5Ei", gmail_at, gmail_ik);
 		}
 
-		internal Message trash(string gmail_at) {
-			return act("tr", gmail_at);
+		internal Message trash(string gmail_at, string gmail_ik) {
+			return act("tr", gmail_at, gmail_ik);
 		}
 
-		internal Message spam(string gmail_at) {
-			return act("sp", gmail_at);
+		internal Message spam(string gmail_at, string gmail_ik) {
+			return act("sp", gmail_at, gmail_ik);
 		}
 	}
 }
