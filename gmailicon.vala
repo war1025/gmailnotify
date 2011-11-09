@@ -203,6 +203,19 @@ namespace GmailFeed {
 					if(message_window.visible) {
 						message_window.hide();
 					} else {
+
+						Gdk.Rectangle rect;
+						Gdk.Screen screen;
+						Orientation orientation;
+						icon.get_geometry(out screen, out rect, out orientation);
+
+						int x;
+						x = icon.screen.get_width();
+
+						window_y = rect.y + rect.height + 5;
+						window_x = x - 405;
+
+						message_window.move(window_x, window_y);
 						message_window.resize(5, 5);
 						message_window.show_all();
 					}
@@ -251,26 +264,6 @@ namespace GmailFeed {
 
 			ebox.add(message_box);
 			message_window.add(ebox);
-
-			/**
-			 * Here we obtain the position of the notification icon. We need to wait for the size changed
-			 * event because initially it is not displayed in the notification area so the position info is invalid.
-			 **/
-			icon.size_changed.connect(() => {
-				Gdk.Rectangle rect;
-				Gdk.Screen screen;
-				Orientation orientation;
-				icon.get_geometry(out screen, out rect, out orientation);
-
-				int x;
-				x = icon.screen.get_width();
-
-				window_y = rect.y + rect.height + 5;
-				window_x = x - 405;
-
-				message_window.move(window_x, window_y);
-				return false;
-			});
 
 		}
 
