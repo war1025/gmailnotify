@@ -212,7 +212,7 @@ namespace GmailFeed {
 						int x;
 						x = icon.screen.get_width();
 
-						window_y = rect.y + rect.height + 5;
+						window_y = 30;
 						window_x = x - 405;
 
 						message_window.move(window_x, window_y);
@@ -326,7 +326,7 @@ namespace GmailFeed {
 			 **/
 			feed.new_message.connect((m) => {
 				try {
-					Process.spawn_command_line_sync("notify-send -i %s \"%s\" \"<small>%s</small>\"".printf(MAIL_ICON, m.author, m.subject));
+					Process.spawn_command_line_sync("notify-send --hint=int:transient:1 -i %s \"%s\" \"%s\"".printf(MAIL_ICON, m.author, m.subject));
 				} catch(Error e) {
 				}
 			});
