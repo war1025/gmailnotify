@@ -101,7 +101,7 @@ namespace GmailFeed {
 		public Feed() {
 			session = new SessionSync();
 			cookiejar = new CookieJar();
-			session.add_feature = cookiejar;
+			session.add_feature(cookiejar);
 			session.timeout = 15;
 
 			messages = new HashMap<string, GMessage>();
