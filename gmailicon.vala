@@ -14,7 +14,7 @@ namespace GmailFeed {
 		/**
 		 * The right click menu
 		 **/
-		private Menu popup_menu;
+		private Gtk.Menu popup_menu;
 		/**
 		 * The mailbox where we store the mail we get
 		 **/
@@ -65,7 +65,7 @@ namespace GmailFeed {
 			icon = new StatusIcon();
 			mailbox = new Mailbox();
 			feed = new FeedController();
-			popup_menu = new Menu();
+			popup_menu = new Gtk.Menu();
 			message_window = new Window(WindowType.POPUP);
 			timer_set = false;
 
@@ -147,9 +147,9 @@ namespace GmailFeed {
 			icon.set_from_file(NO_MAIL_ICON);
 			icon.set_tooltip_text("Disconnected...");
 
-			var login = new MenuItem.with_label("Login");
-			var update = new MenuItem.with_label("Update");
-			var quit = new MenuItem.with_label("Quit");
+			var login = new Gtk.MenuItem.with_label("Login");
+			var update = new Gtk.MenuItem.with_label("Update");
+			var quit = new Gtk.MenuItem.with_label("Quit");
 
 			login.activate.connect(() => {
 				this.login();
