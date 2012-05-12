@@ -58,7 +58,7 @@ namespace GmailFeed {
 		 **/
 		private Feed feed;
 		private AsyncQueue<FeedAction> queue;
-		private unowned Thread<void*> thread;
+		private Thread<void*> thread;
 
 		/**
 		 * Create the feed and the feed thread and start them running
@@ -69,12 +69,7 @@ namespace GmailFeed {
 
 			connect_signals();
 
-			try {
-				this.thread = Thread.create<void*>(run, true);
-			} catch(ThreadError e) {
-				stderr.printf("Error starting thread\n");
-			}
-
+			this.thread = new Thread<void*>("Feed thread", run);
 		}
 
 		/**
