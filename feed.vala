@@ -255,13 +255,9 @@ namespace GmailFeed {
 
 				timex.match(s, 0, out info);
 				var sub = info.fetch(1);
-
-				var time = new DateTime.local(int.parse(sub.substring(0, 4)),
-												int.parse(sub.substring(5, 2)),
-												int.parse(sub.substring(8, 2)),
-												int.parse(sub.substring(11, 2)),
-												int.parse(sub.substring(14, 2)),
-												int.parse(sub.substring(17, 2)));
+				int year, month, day, hour, min, sec;
+				sub.scanf("%d-%d-%dT%d:%d:%d", out year, out month, out day, out hour, out min, out sec);
+				var time = new DateTime.local(year, month, day, hour, min, sec);
 
 				var gm = new GMessage(author, subject, summary, mid, time);
 
