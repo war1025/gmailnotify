@@ -179,11 +179,11 @@ namespace GmailFeed {
 
 			session.send_message(message);
 
-			var ikx = /GLOBALS=[[^,]*,]{9}"([^"]*)","([^"]*)/;
+			var ikx = /GLOBALS=([^,]*,){9}"([^"]*)","([^"]*)/;
 			ikx.match((string) message.response_body.data, 0, out info);
 
-			gmail_ik = info.fetch(1);
-			var username = info.fetch(2);
+			gmail_ik = info.fetch(2);
+			var username = info.fetch(3);
 
 			// Get our gmail_at cookie
 			cookies = cookiejar.all_cookies();
