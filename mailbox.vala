@@ -145,12 +145,12 @@ namespace GmailFeed {
 			Gdk.Color.parse("#fff", out white);
 			ulong sigid;
 
-			var hbox = new HBox(false, 5);
-			var vbox = new VBox(false, 0);
+			var hbox = new Box(Orientation.HORIZONTAL, 5);
+			var vbox = new Box(Orientation.VERTICAL, 0);
 			hbox.pack_start(vbox, false, false, 5);
 
 			// The subject line
-			var subject_box = new HBox(false, 0);
+			var subject_box = new Box(Orientation.HORIZONTAL, 0);
 			var subject_l = new Label(null);
 			subject_l.set_alignment(0, 0.5f);
 			subject_l.wrap = true;
@@ -162,7 +162,7 @@ namespace GmailFeed {
 			vbox.pack_start(subject_box, false, false, 1);
 
 			// The from line, with the star and important icon
-			var from_box = new HBox(false, 0);
+			var from_box = new Box(Orientation.HORIZONTAL, 0);
 			var from_l = new Label(null);
 			from_l.set_alignment(0, 0.5f);
 			from_l.wrap = true;
@@ -233,7 +233,7 @@ namespace GmailFeed {
 			// The actions : Mark read, archive, spam, delete
 			// When mousing over an action, underline it.
 			// When clicked, make it italic and disable all actions
-			var actions_box = new HBox(false, 0);
+			var actions_box = new Box(Orientation.HORIZONTAL, 0);
 			var read_l = new Label(null);
 			read_l.set_alignment(0, 0.5f);
 			read_l.set_markup("<small><span foreground='darkred'>Mark as read</span> |</small>");
@@ -362,7 +362,7 @@ namespace GmailFeed {
 			vbox.pack_start(actions_box, false, false, 1);
 
 			// The message
-			var summary_box = new HBox(false, 0);
+			var summary_box = new Box(Orientation.HORIZONTAL, 0);
 			var summary_l = new Label(null);
 			summary_l.set_alignment(0, 0.5f);
 			summary_l.wrap = true;

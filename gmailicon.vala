@@ -30,7 +30,7 @@ namespace GmailFeed {
 		 * so we can access its contents and update them as needed.
 		 **/
 		private Window message_window;
-		private VBox message_box;
+		private Box message_box;
 		/**
 		 * Position of the top left corner of the window
 		 **/
@@ -112,7 +112,7 @@ namespace GmailFeed {
 			table.attach_defaults(pass_label, 0, 1, 1, 2);
 			table.attach_defaults(pass_entry, 1, 2, 1, 2);
 
-			unowned Box box = (Box) login_dialog.get_content_area();
+			var box = login_dialog.get_content_area();
 			box.pack_start(table, true, true);
 
 			login_dialog.set_default(login_dialog.add_button("Login", 1));
@@ -232,7 +232,7 @@ namespace GmailFeed {
 			Gdk.Color.parse("#fff", out white);
 
 			var ebox = new EventBox();
-			message_box = new VBox(false, 5);
+			message_box = new Box(Orientation.VERTICAL, 5);
 			ebox.modify_bg(StateType.NORMAL, white);
 
 			/**
