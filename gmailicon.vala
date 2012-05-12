@@ -180,13 +180,16 @@ namespace GmailFeed {
 			popup_menu.append(quit);
 
 			popup_menu.show_all();
+			update.hide();
 
 			feed.login_success.connect(() => {
 				login.hide();
+				update.show();
 			});
 
 			feed.connection_error.connect(() => {
 				login.show();
+				update.hide();
 			});
 
 			icon.popup_menu.connect((b,t) => {
