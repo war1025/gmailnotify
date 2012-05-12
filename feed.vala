@@ -62,6 +62,7 @@ namespace GmailFeed {
 		private static Regex inputx = /(?m)<input[^<>]+>/;
 		private static Regex namex = /(?m)name="([^"]+)"/;
 		private static Regex valx = /(?m)value=['"]([^'"]*)['"]/;
+		private static Regex ikx = /GLOBALS=([^,]*,){9}"([^"]*)","([^"]*)/;
 
 		/**
 		 * Regexes used to parse feed updates
@@ -173,13 +174,11 @@ namespace GmailFeed {
 			// Send the form
 			message = new Message("POST", action);
 
-
 			message.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, fm.data);
 			message.request_headers.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+");
 
 			session.send_message(message);
 
-			var ikx = /GLOBALS=([^,]*,){9}"([^"]*)","([^"]*)/;
 			ikx.match((string) message.response_body.data, 0, out info);
 
 			gmail_ik = info.fetch(2);
