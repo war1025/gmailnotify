@@ -179,7 +179,7 @@ namespace GmailFeed {
 
 			session.send_message(message);
 
-			var ikx = /GLOBALS=[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,"([^"]*)","([^"]*)/;
+			var ikx = /GLOBALS=[[^,]*,]{9}"([^"]*)","([^"]*)/;
 			ikx.match((string) message.response_body.data, 0, out info);
 
 			gmail_ik = info.fetch(1);
