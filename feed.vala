@@ -9,7 +9,7 @@ namespace GmailFeed {
 		DISCONNECTED,
 		UNKNOWN
 	}
-
+aadfafa
 	/**
 	 * We want a username and password but we aren't picky about how we get it.
 	 * Probably this is an unneccesary design step, but it doesn't hurt anything and gives some added flexibility.
