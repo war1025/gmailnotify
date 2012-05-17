@@ -15,7 +15,7 @@ aadfafa
 	 * Probably this is an unneccesary design step, but it doesn't hurt anything and gives some added flexibility.
 	 **/
 	public delegate string[] AuthDelegate();
-
+afdafa
 	/**
 	 * The Feed is what actually logs in, connects to the atom feed, and sends messages to gmail to take desired actions.
 	 **/
