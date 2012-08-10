@@ -58,7 +58,7 @@ namespace GmailFeed {
 		/**
 		 * Regexes used to parse login
 		 **/
-		private static Regex form = /(?m)<form id="gaia_loginform" action="([^"]+)"(?s).*<\/form>/;
+		private static Regex form = /(?m)<form\s+id="gaia_loginform" action="([^"]+)"(?s).*<\/form>/;
 		private static Regex inputx = /(?m)<input[^<>]+>/;
 		private static Regex namex = /(?m)name="([^"]+)"/;
 		private static Regex valx = /(?m)value=['"]([^'"]*)['"]/;
