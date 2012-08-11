@@ -113,7 +113,7 @@ namespace GmailFeed {
 		/**
 		 * Log into gmail.
 		 **/
-		public bool login(AuthDelegate ad) {
+		public bool login(AuthDelegate ad, int numRetries = 5) {
 			// Bye bye all of the old cookies
 			var cookies = cookiejar.all_cookies();
 			for(int i = 0; i < cookies.length(); i++) {
@@ -204,7 +204,11 @@ namespace GmailFeed {
 				if(message.status_code == 200) {
 					handle_error(401);
 				} else {
-					handle_error(message.status_code);
+					if(numRetries == 0) {
+						handle_error(message.status_code);
+					} else {
+						login(ad, numRetries -1);
+					}
 				}
 			}
 			return gmail_at != "";
