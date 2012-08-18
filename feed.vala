@@ -128,8 +128,13 @@ namespace GmailFeed {
 			session.send_message(message);
 
 			if(message.status_code != 200) {
-				handle_error(message.status_code);
-				return false;
+				if(numRetries == 0) {
+					handle_error(message.status_code);
+					return false;
+				} else {
+					login(ad, numRetries -1);
+					return gmail_at != "";
+				}
 			}
 
 			// Reset the gmail_at if it exists
