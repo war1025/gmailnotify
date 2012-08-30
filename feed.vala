@@ -156,15 +156,19 @@ namespace GmailFeed {
 
 			inputx.match(gaiaform, 0, out info);
 
-			do {
-				var field = info.fetch(0);
-				namex.match(field, 0, out namei);
-				valx.match(field, 0, out vali);
+			try {
+				do {
+					var field = info.fetch(0);
+					namex.match(field, 0, out namei);
+					valx.match(field, 0, out vali);
 
-				var name = namei.fetch(1);
-				var val = (vali.matches()) ? vali.fetch(1) : "";
-				table.set(name, val);
-			} while(info.next());
+					var name = namei.fetch(1);
+					var val = (vali.matches()) ? vali.fetch(1) : "";
+					table.set(name, val);
+				} while(info.next());
+			} catch(GLib.RegexError e) {
+				stdout.printf("Error matching regex");
+			}
 
 			// Run the authentication delegate to get our credentials.
 			var at = ad();
