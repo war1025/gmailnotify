@@ -58,7 +58,7 @@ namespace GmailFeed {
 		/**
 		 * Regexes used to parse login
 		 **/
-		private static Regex form = /(?m)<form\s+id="gaia_loginform" action="([^"]+)"(?s).*<\/form>/;
+		private static Regex form = /(?m)<form novalidate\s+id="gaia_loginform" action="([^"]+)"(?s).*<\/form>/;
 		private static Regex inputx = /(?m)<input[^<>]+>/;
 		private static Regex namex = /(?m)name="([^"]+)"/;
 		private static Regex valx = /(?m)value=['"]([^'"]*)['"]/;
@@ -153,6 +153,16 @@ namespace GmailFeed {
 
 			var gaiaform = info.fetch(0);
 			var action = info.fetch(1);
+
+			if(gaiaform == null) {
+				if(numRetries == 0) {
+					handle_error(message.status_code);
+					return false;
+				} else {
+					login(ad, numRetries -1);
+					return gmail_at != "";
+				}
+			}
 
 			inputx.match(gaiaform, 0, out info);
 
