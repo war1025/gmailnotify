@@ -435,6 +435,11 @@ namespace GmailFeed {
 		private Gee.Map<string, MailItem> messages;
 
 		/**
+		 * Used to simplify repetetive actions on mail items
+		 **/
+		delegate void MessageAction(MailItem ma);
+
+		/**
 		 * Mailbox message count
 		 **/
 		public int size {
@@ -500,39 +505,40 @@ namespace GmailFeed {
 		 * Stars the message with the given id
 		 **/
 		public void star_message(string id) {
-			if(messages.has_key(id)) {
-				var mess = messages[id];
-				mess.make_starred();
-			}
+			message_action(id, (m) => { m.make_starred(); });
 		}
 
 		/**
 		 * Unstars the message with the given id
 		 **/
 		public void unstar_message(string id) {
-			if(messages.has_key(id)) {
-				var mess = messages[id];
-				mess.make_unstarred();
-			}
+			message_action(id, (m) => { m.make_unstarred(); });
 		}
 
 		/**
 		 * Marks a message important with the given id
 		 **/
 		public void important_message(string id) {
-			if(messages.has_key(id)) {
-				var mess = messages[id];
-				mess.make_important();
-			}
+			message_action(id, (m) => { m.make_important(); });
 		}
 
 		/**
 		 * Marks the message with the given id unimportant
 		 **/
 		public void unimportant_message(string id) {
+			message_action(id, (m) => { m.make_unimportant(); });
+		}
+
+		/**
+		 * Performs the given action on the mail item with the given id, if it exists
+		 *
+		 * @param id Id of the mail item to act on
+		 * @param ma Action to perform on the mail item
+		 **/
+		private void message_action(string id, MessageAction ma) {
 			if(messages.has_key(id)) {
 				var mess = messages[id];
-				mess.make_unimportant();
+				ma(mess);
 			}
 		}
 
