@@ -20,6 +20,12 @@ namespace GmailFeed {
 		public signal void important_clicked();
 
 		/**
+		 * Used when connecting signals
+		 **/
+		internal delegate void SignalAction();
+		internal delegate bool ShouldAct();
+
+		/**
 		 * Visual is the representation of the message that can be displayed in the popup.
 		 * It is intended to be embedded in a VBox along with all other messages to represent the unread inbox.
 		 * For this reason it should be laid out in a way that is vertically compact.
@@ -136,6 +142,30 @@ namespace GmailFeed {
 			signals.clear();
 		}
 
+		internal void connect_signals(EventBox eb, ShouldAct sa, SignalAction enter, SignalAction leave, SignalAction press) {
+			var ste = eb.enter_notify_event.connect(() => {
+				if(sa()) {
+					enter();
+				}
+				return false;
+			});
+			var stl = eb.leave_notify_event.connect(() => {
+				if(sa()) {
+					leave();
+				}
+				return false;
+			});
+			var sigid = eb.button_press_event.connect(() => {
+				if(sa()) {
+					press();
+				}
+				return false;
+			});
+			signals.set(eb, ste);
+			signals.set(eb, stl);
+			signals.set(eb, sigid);
+		}
+
 		/**
 		 * Build the visual. We use EventBoxes to capture events. The three we care about are enter, leave, and button press.
 		 * We use bools to determine if the events should alter state. This allows us to reactivate the pieces if errors happen.
@@ -143,7 +173,6 @@ namespace GmailFeed {
 		private void create_visual() {
 			Gdk.Color white;
 			Gdk.Color.parse("#fff", out white);
-			ulong sigid;
 
 			var hbox = new Box(Orientation.HORIZONTAL, 5);
 			var vbox = new Box(Orientation.VERTICAL, 0);
@@ -176,28 +205,21 @@ namespace GmailFeed {
 			from_box.pack_start(star_e, false, false, 3);
 			// On entering, change coloring to half. On exit return to the proper coloring.
 			// If clicked, disable events, a signal will be received to finish the action.
-			var ste = star_e.enter_notify_event.connect(() => {
-				if(star_active) {
+			connect_signals(star_e, () => { return star_active; },
+				// Enter
+				() => {
 					star_i.pixbuf = STAR_HALF;
-				}
-				return false;
-			});
-			var stl = star_e.leave_notify_event.connect(() => {
-				if(star_active) {
+				},
+				// Leave
+				() => {
 					star_i.pixbuf = this.starred ? STAR_FULL : STAR_EMPTY;
-				}
-				return false;
-			});
-			sigid = star_e.button_press_event.connect(() => {
-				if(star_active) {
+				},
+				// Press
+				() => {
 					star_active = false;
 					star_clicked();
 				}
-				return false;
-			});
-			signals.set(star_e, ste);
-			signals.set(star_e, stl);
-			signals.set(star_e, sigid);
+			);
 
 			important_i = new Image.from_pixbuf(IMPORTANT_EMPTY);
 			var important_e = new EventBox();
@@ -206,34 +228,28 @@ namespace GmailFeed {
 			from_box.pack_start(important_e, false, false, 3);
 			// On entering, change coloring to half. On exit return to the proper coloring.
 			// If clicked, disable events, a signal will be received to finish the action.
-			var ie = important_e.enter_notify_event.connect(() => {
-				if(important_active) {
+			connect_signals(important_e, () => { return important_active; },
+				// Enter
+				() => {
 					important_i.pixbuf = IMPORTANT_HALF;
-				}
-				return false;
-			});
-			var il = important_e.leave_notify_event.connect(() => {
-				if(important_active) {
+				},
+				// Leave
+				() => {
 					important_i.pixbuf = this.important ? IMPORTANT_FULL : IMPORTANT_EMPTY;
-				}
-				return false;
-			});
-			sigid = important_e.button_press_event.connect(() => {
-				if(important_active) {
+				},
+				// Press
+				() => {
 					important_active = false;
 					important_clicked();
 				}
-				return false;
-			});
-			signals.set(important_e, ie);
-			signals.set(important_e, il);
-			signals.set(important_e, sigid);
+			);
 			vbox.pack_start(from_box, false, false);
 
 			// The actions : Mark read, archive, spam, delete
 			// When mousing over an action, underline it.
 			// When clicked, make it italic and disable all actions
 			var actions_box = new Box(Orientation.HORIZONTAL, 0);
+			ShouldAct should_act = () => { return actions_active; };
 			var read_l = new Label(null);
 			read_l.set_alignment(0, 0.5f);
 			read_l.set_markup("<small><span foreground='darkred'>Mark as read</span> |</small>");
@@ -241,29 +257,22 @@ namespace GmailFeed {
 			read_e.modify_bg(StateType.NORMAL, white);
 			read_e.add(read_l);
 			actions_box.pack_start(read_e, false, false);
-			var re = read_e.enter_notify_event.connect(() => {
-				if(actions_active) {
+			connect_signals(read_e, should_act,
+				// Enter
+				() => {
 					read_l.set_markup("<small><u><span foreground='darkred'>Mark as read</span></u> |</small>");
-				}
-				return false;
-			});
-			var rl = read_e.leave_notify_event.connect(() => {
-				if(actions_active) {
+				},
+				// Leave
+				() => {
 					read_l.set_markup("<small><span foreground='darkred'>Mark as read</span> |</small>");
-				}
-				return false;
-			});
-			sigid = read_e.button_press_event.connect(() => {
-				if(actions_active) {
+				},
+				// Press
+				() => {
 					read_l.set_markup("<small><i><u><span foreground='darkred'>Marking as read...</span></u></i> |</small>");
 					mark_read_clicked();
 					actions_active = false;
 				}
-				return false;
-			});
-			signals.set(read_e, re);
-			signals.set(read_e, rl);
-			signals.set(read_e, sigid);
+			);
 
 			var archive_l = new Label(null);
 			archive_l.set_alignment(0, 0.5f);
@@ -272,29 +281,22 @@ namespace GmailFeed {
 			archive_e.modify_bg(StateType.NORMAL, white);
 			archive_e.add(archive_l);
 			actions_box.pack_start(archive_e, false, false);
-			var ae = archive_e.enter_notify_event.connect(() => {
-				if(actions_active) {
+			connect_signals(archive_e, should_act,
+				// Enter
+				() => {
 					archive_l.set_markup("<small> <u><span foreground='darkred'>Archive</span></u> |</small>");
-				}
-				return false;
-			});
-			var al = archive_e.leave_notify_event.connect(() => {
-				if(actions_active) {
+				},
+				// Leave
+				() => {
 					archive_l.set_markup("<small> <span foreground='darkred'>Archive</span> |</small>");
-				}
-				return false;
-			});
-			sigid = archive_e.button_press_event.connect(() => {
-				if(actions_active) {
+				},
+				// Press
+				() => {
 					archive_l.set_markup("<small> <i><u><span foreground='darkred'>Archiving...</span></u></i> |</small>");
 					archive_clicked();
 					actions_active = false;
 				}
-				return false;
-			});
-			signals.set(archive_e, ae);
-			signals.set(archive_e, al);
-			signals.set(archive_e, sigid);
+			);
 
 			var spam_l = new Label(null);
 			spam_l.set_alignment(0, 0.5f);
@@ -303,29 +305,22 @@ namespace GmailFeed {
 			spam_e.modify_bg(StateType.NORMAL, white);
 			spam_e.add(spam_l);
 			actions_box.pack_start(spam_e, false, false);
-			var se = spam_e.enter_notify_event.connect(() => {
-				if(actions_active) {
+			connect_signals(spam_e, should_act,
+				// Enter
+				() => {
 					spam_l.set_markup("<small> <u><span foreground='darkred'>Report spam</span></u> |</small>");
-				}
-				return false;
-			});
-			var sl = spam_e.leave_notify_event.connect(() => {
-				if(actions_active) {
+				},
+				// Leave
+				() => {
 					spam_l.set_markup("<small> <span foreground='darkred'>Report spam</span> |</small>");
-				}
-				return false;
-			});
-			sigid = spam_e.button_press_event.connect(() => {
-				if(actions_active) {
+				},
+				// Press
+				() => {
 					spam_l.set_markup("<small> <i><u><span foreground='darkred'>Reporting spam...</span></u></i> |</small>");
 					spam_clicked();
 					actions_active = false;
 				}
-				return false;
-			});
-			signals.set(spam_e, se);
-			signals.set(spam_e, sl);
-			signals.set(spam_e, sigid);
+			);
 
 			var trash_l = new Label(null);
 			trash_l.set_alignment(0, 0.5f);
@@ -334,30 +329,22 @@ namespace GmailFeed {
 			trash_e.modify_bg(StateType.NORMAL, white);
 			trash_e.add(trash_l);
 			actions_box.pack_start(trash_e, false, false);
-			var te = trash_e.enter_notify_event.connect(() => {
-				if(actions_active) {
+			connect_signals(trash_e, should_act,
+				// Enter
+				() => {
 					trash_l.set_markup("<small> <u><span foreground='darkred'>Delete</span></u></small>");
-				}
-				return false;
-			});
-			var tl = trash_e.leave_notify_event.connect(() => {
-				if(actions_active) {
+				},
+				// Leave
+				() => {
 					trash_l.set_markup("<small> <span foreground='darkred'>Delete</span></small>");
-				}
-				return false;
-			});
-			sigid = trash_e.button_press_event.connect(() => {
-				if(actions_active) {
+				},
+				// Press
+				() => {
 					trash_l.set_markup("<small> <i><u><span foreground='darkred'>Deleting</span></u></i></small>");
 					delete_clicked();
 					actions_active = false;
 				}
-				return false;
-			});
-			signals.set(trash_e, te);
-			signals.set(trash_e, tl);
-			signals.set(trash_e, sigid);
-
+			);
 
 			vbox.pack_start(actions_box, false, false, 1);
 
