@@ -141,8 +141,8 @@ namespace GmailFeed {
 		 * We use bools to determine if the events should alter state. This allows us to reactivate the pieces if errors happen.
 		 **/
 		private void create_visual() {
-			Gdk.Color white;
-			Gdk.Color.parse("#fff", out white);
+			Gdk.RGBA white = Gdk.RGBA();
+			white.parse("#fff");
 			ulong sigid;
 
 			var hbox = new Box(Orientation.HORIZONTAL, 5);
@@ -156,7 +156,7 @@ namespace GmailFeed {
 			subject_l.wrap = true;
 			subject_l.set_markup("<span foreground='#000'><b><u>%s</u></b></span>".printf(this.subject));
 			var subject_e = new EventBox();
-			subject_e.modify_bg(StateType.NORMAL, white);
+			subject_e.override_background_color(StateFlags.NORMAL, white);
 			subject_e.add(subject_l);
 			subject_box.pack_start(subject_e, false, false);
 			vbox.pack_start(subject_box, false, false, 1);
@@ -171,7 +171,7 @@ namespace GmailFeed {
 
 			star_i = new Image.from_pixbuf(STAR_EMPTY);
 			var star_e = new EventBox();
-			star_e.modify_bg(StateType.NORMAL, white);
+			star_e.override_background_color(StateFlags.NORMAL, white);
 			star_e.add(star_i);
 			from_box.pack_start(star_e, false, false, 3);
 			// On entering, change coloring to half. On exit return to the proper coloring.
@@ -201,7 +201,7 @@ namespace GmailFeed {
 
 			important_i = new Image.from_pixbuf(IMPORTANT_EMPTY);
 			var important_e = new EventBox();
-			important_e.modify_bg(StateType.NORMAL, white);
+			important_e.override_background_color(StateFlags.NORMAL, white);
 			important_e.add(important_i);
 			from_box.pack_start(important_e, false, false, 3);
 			// On entering, change coloring to half. On exit return to the proper coloring.
@@ -238,7 +238,7 @@ namespace GmailFeed {
 			read_l.set_alignment(0, 0.5f);
 			read_l.set_markup("<small><span foreground='darkred'>Mark as read</span> |</small>");
 			var read_e = new EventBox();
-			read_e.modify_bg(StateType.NORMAL, white);
+			read_e.override_background_color(StateFlags.NORMAL, white);
 			read_e.add(read_l);
 			actions_box.pack_start(read_e, false, false);
 			var re = read_e.enter_notify_event.connect(() => {
@@ -269,7 +269,7 @@ namespace GmailFeed {
 			archive_l.set_alignment(0, 0.5f);
 			archive_l.set_markup("<small> <span foreground='darkred'>Archive</span> |</small>");
 			var archive_e = new EventBox();
-			archive_e.modify_bg(StateType.NORMAL, white);
+			archive_e.override_background_color(StateFlags.NORMAL, white);
 			archive_e.add(archive_l);
 			actions_box.pack_start(archive_e, false, false);
 			var ae = archive_e.enter_notify_event.connect(() => {
@@ -300,7 +300,7 @@ namespace GmailFeed {
 			spam_l.set_alignment(0, 0.5f);
 			spam_l.set_markup("<small> <span foreground='darkred'>Report spam</span> |</small>");
 			var spam_e = new EventBox();
-			spam_e.modify_bg(StateType.NORMAL, white);
+			spam_e.override_background_color(StateFlags.NORMAL, white);
 			spam_e.add(spam_l);
 			actions_box.pack_start(spam_e, false, false);
 			var se = spam_e.enter_notify_event.connect(() => {
@@ -331,7 +331,7 @@ namespace GmailFeed {
 			trash_l.set_alignment(0, 0.5f);
 			trash_l.set_markup("<small> <span foreground='darkred'>Delete</span></small>");
 			var trash_e = new EventBox();
-			trash_e.modify_bg(StateType.NORMAL, white);
+			trash_e.override_background_color(StateFlags.NORMAL, white);
 			trash_e.add(trash_l);
 			actions_box.pack_start(trash_e, false, false);
 			var te = trash_e.enter_notify_event.connect(() => {

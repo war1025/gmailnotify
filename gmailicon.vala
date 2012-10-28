@@ -231,12 +231,12 @@ namespace GmailFeed {
 		 * Sets up some basic things for the window that will show the messages.
 		 **/
 		private void build_message_window() {
-			Gdk.Color white;
-			Gdk.Color.parse("#fff", out white);
+			Gdk.RGBA white = Gdk.RGBA();
+			white.parse("#fff");
 
 			var ebox = new EventBox();
 			message_box = new Box(Orientation.VERTICAL, 5);
-			ebox.modify_bg(StateType.NORMAL, white);
+			ebox.override_background_color(StateFlags.NORMAL, white);
 
 			/**
 			 * We want the window to hide if we mouse out of it, but we don't want it to happen immediately in case
