@@ -381,26 +381,7 @@ namespace GmailFeed {
 			 **/
 			feed.message_removed.connect(() => {
 				if(request_update) {
-					var count = mailbox.size;
-					if(count == 0) {
-						icon.set_tooltip_text("No mail...");
-						icon.set_from_file(NO_MAIL_ICON);
-					} else if(count == 1) {
-						icon.set_tooltip_text("There is 1 new message...");
-						icon.set_from_file(MAIL_ICON);
-					} else {
-						icon.set_tooltip_text("There are %d new messages...".printf(count));
-						icon.set_from_file(MAIL_ICON);
-					}
-					if(message_window.visible) {
-						message_window.hide();
-						message_window.resize(5, 5);
-						if(count > 0) {
-							message_window.show_all();
-						}
-					} else {
-						message_window.resize(5, 5);
-					}
+					updateUI();
 				}
 				request_update = false;
 			});
@@ -467,27 +448,32 @@ namespace GmailFeed {
 			});
 
 			feed.update_complete.connect(() => {
-				var count = mailbox.size;
-				if(count == 0) {
-					icon.set_tooltip_text("No mail...");
-					icon.set_from_file(NO_MAIL_ICON);
-				} else if(count == 1) {
-					icon.set_tooltip_text("There is 1 new message...");
-					icon.set_from_file(MAIL_ICON);
-				} else {
-					icon.set_tooltip_text("There are %d new messages...".printf(count));
-					icon.set_from_file(MAIL_ICON);
-				}
-				if(message_window.visible) {
-					message_window.hide();
-					message_window.resize(5, 5);
-					if(count > 0) {
-						message_window.show_all();
-					}
-				} else {
-					message_window.resize(5, 5);
-				}
+				updateUI();
 			});
+		}
+
+		private void updateUI() {
+			var count = mailbox.size;
+			var user = ad()[0];
+			if(count == 0) {
+				icon.set_tooltip_text("%s: No mail...".printf(user));
+				icon.set_from_file(NO_MAIL_ICON);
+			} else if(count == 1) {
+				icon.set_tooltip_text("%s: There is 1 new message...".printf(user));
+				icon.set_from_file(MAIL_ICON);
+			} else {
+				icon.set_tooltip_text("%s: There are %d new messages...".printf(user, count));
+				icon.set_from_file(MAIL_ICON);
+			}
+			if(message_window.visible) {
+				message_window.hide();
+				message_window.resize(5, 5);
+				if(count > 0) {
+					message_window.show_all();
+				}
+			} else {
+				message_window.resize(5, 5);
+			}
 		}
 	}
 
