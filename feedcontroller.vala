@@ -103,12 +103,21 @@ namespace GmailFeed {
 		}
 
 		/**
+		 * Queues an action of the given type, with the optional id
+		 **/
+		private void push_action(FeedActionType type, string id = "") {
+			var act = new FeedAction();
+			act.id = id;
+			act.action = type;
+			queue.push(act);
+		}
+
+
+		/**
 		 * To shutdown we need to get the message thread to stop. We want to let any queued actions complete first though.
 		 **/
 		public void shutdown() {
-			var act = new FeedAction();
-			act.action = FeedActionType.QUIT;
-			queue.push(act);
+			this.push_action(FeedActionType.QUIT);
 		}
 
 		/**
@@ -213,51 +222,31 @@ namespace GmailFeed {
 		 * These methods take care of getting the correct info into the queue to complete the desired actions.
 		 **/
 		public void update() {
-			var act = new FeedAction();
-			act.action = FeedActionType.UPDATE;
-			queue.push(act);
+			this.push_action(FeedActionType.UPDATE);
 		}
 
 		public void mark_read(string id) {
-			var act = new FeedAction();
-			act.id = id;
-			act.action = FeedActionType.READ;
-			queue.push(act);
+			this.push_action(FeedActionType.READ, id);
 		}
 
 		public void toggle_starred(string id) {
-			var act = new FeedAction();
-			act.id = id;
-			act.action = FeedActionType.STAR;
-			queue.push(act);
+			this.push_action(FeedActionType.STAR, id);
 		}
 
 		public void toggle_important(string id) {
-			var act = new FeedAction();
-			act.id = id;
-			act.action = FeedActionType.IMPORTANT;
-			queue.push(act);
+			this.push_action(FeedActionType.IMPORTANT, id);
 		}
 
 		public void archive(string id) {
-			var act = new FeedAction();
-			act.id = id;
-			act.action = FeedActionType.ARCHIVE;
-			queue.push(act);
+			this.push_action(FeedActionType.ARCHIVE, id);
 		}
 
 		public void trash(string id) {
-			var act = new FeedAction();
-			act.id = id;
-			act.action = FeedActionType.TRASH;
-			queue.push(act);
+			this.push_action(FeedActionType.TRASH, id);
 		}
 
 		public void spam(string id) {
-			var act = new FeedAction();
-			act.id = id;
-			act.action = FeedActionType.SPAM;
-			queue.push(act);
+			this.push_action(FeedActionType.SPAM, id);
 		}
 
 		public void login(AuthDelegate ad) {
