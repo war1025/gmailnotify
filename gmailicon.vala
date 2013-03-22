@@ -152,6 +152,7 @@ namespace GmailFeed {
 			var quit = new Gtk.MenuItem.with_label("Quit");
 
 			login.activate.connect(() => {
+				login.hide();
 				this.login();
 			});
 

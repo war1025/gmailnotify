@@ -100,26 +100,23 @@ namespace GmailFeed {
 		}
 
 		public Feed() {
+			messages = new HashMap<string, GMessage>();
+			messages2 = new HashMap<string, GMessage>();
+			gmail_at = "";
+		}
+
+		private void create_session() {
 			session = new SessionSync();
 			cookiejar = new CookieJar();
 			session.add_feature(cookiejar);
 			session.timeout = 15;
-
-			messages = new HashMap<string, GMessage>();
-			messages2 = new HashMap<string, GMessage>();
-			gmail_at = "";
 		}
 
 		/**
 		 * Log into gmail.
 		 **/
 		public bool login(AuthDelegate ad, int numRetries = 5) {
-			// Bye bye all of the old cookies
-			var cookies = cookiejar.all_cookies();
-			for(int i = 0; i < cookies.length(); i++) {
-				unowned Cookie c = cookies.nth_data(i);
-				cookiejar.delete_cookie(c);
-			}
+			create_session();
 
 			// Contact the login, this will give us the form info to submit
 			var message = new Message("GET", "https://www.google.com/accounts/ServiceLogin?service=mail");
@@ -204,7 +201,7 @@ namespace GmailFeed {
 			var username = info.fetch(3);
 
 			// Get our gmail_at cookie
-			cookies = cookiejar.all_cookies();
+			var cookies = cookiejar.all_cookies();
 			for(int i = 0; i < cookies.length(); i++) {
 				unowned Cookie c = cookies.nth_data(i);
 				if(c.name == "GMAIL_AT") {
