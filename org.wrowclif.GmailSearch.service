@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.wrowclif.GmailSearch
+Exec=/usr/bin/gmail-searchprovider

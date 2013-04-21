@@ -1,0 +1,15 @@
+
+[Desktop Entry]
+X-AppInstall-Package=
+X-AppInstall-Popcon=1
+X-AppInstall-Section=main
+
+Version=1.0
+Name=Gmail Notify
+GenericName=Gmail notification
+Exec=/usr/bin/gmailnotify
+Icon=gmailnotify
+Terminal=false
+Type=Application
+Categories=Network;
+StartupNotify=true

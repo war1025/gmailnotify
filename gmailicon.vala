@@ -23,6 +23,10 @@ namespace GmailFeed {
 		 * The feed we are connected to so we can get mail
 		 **/
 		private FeedController feed;
+		/**
+		 * Dbus interface for interacting with this feed
+		 **/
+		private GmailDbus gmail_dbus;
 
 		/**
 		 * The window and box we will display when the user wants to view their mail.
@@ -67,6 +71,13 @@ namespace GmailFeed {
 			feed = new FeedController();
 			popup_menu = new Gtk.Menu();
 			message_window = new Window(WindowType.POPUP);
+			gmail_dbus = new GmailDbus(() => {return mailbox.size;},
+			                           () => {return mailbox.items;},
+									   () => {return ad()[0];},
+									   show_message_window);
+
+			register_instance(gmail_dbus);
+
 			timer_set = false;
 
 			build_icon();
@@ -202,31 +213,27 @@ namespace GmailFeed {
 			 * show an empty window. We resize the window to too small before we show it so that it sizes itself
 			 * properly and doesn't have extra white space
 			 **/
-			icon.activate.connect(() => {
-				if(mailbox.size > 0) {
-					if(message_window.visible) {
-						message_window.hide();
-					} else {
-
-						Gdk.Rectangle rect;
-						Gdk.Screen screen;
-						Orientation orientation;
-						icon.get_geometry(out screen, out rect, out orientation);
-
-						int x;
-						x = icon.screen.get_width();
-
-						window_y = 30;
-						window_x = x - 405;
-
-						message_window.move(window_x, window_y);
-						message_window.resize(5, 5);
-						message_window.show_all();
-					}
-				}
-			});
+			icon.activate.connect(show_message_window);
 
 		}
+
+		private void show_message_window() {
+			if(mailbox.size > 0) {
+				if(message_window.visible) {
+					message_window.hide();
+				} else {
+					int x = icon.screen.get_width();
+
+					window_y = 30;
+					window_x = x - 405;
+
+					message_window.move(window_x, window_y);
+					message_window.resize(5, 5);
+					message_window.show_all();
+				}
+			}
+		}
+
 
 		/**
 		 * Sets up some basic things for the window that will show the messages.
