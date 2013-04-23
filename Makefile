@@ -68,3 +68,7 @@ install-images: images/error.png images/mail.png images/nomail.png \
 uninstall-images:
 	rm -rf /usr/share/gmailnotify
 	rm -f /usr/share/pixmaps/gmailnotify.png
+
+install-shell-extension: shell-extension/metadata.json shell-extension/extension.js
+	mkdir -p ~/.local/share/gnome-shell/extensions/gmailnotify-indicator@wrowclif.org
+	cp ./shell-extension/* ~/.local/share/gnome-shell/extensions/gmailnotify-indicator@wrowclif.org/
