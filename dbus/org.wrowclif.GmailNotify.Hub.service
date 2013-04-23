@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.wrowclif.GmailNotify.Hub
+Exec=/usr/bin/gmailnotify-hub
