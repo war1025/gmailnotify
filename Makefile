@@ -7,19 +7,19 @@ clean:
 
 gmailnotify: feed.vala feedcontroller.vala mailbox.vala gmailicon.vala \
 			dbus/interfaces.vala dbus/instance.vala
-	valac-0.18 --enable-experimental -D GLIB_2_32 \
+	valac --enable-experimental -D GLIB_2_32 \
 				--pkg libsoup-2.4 --pkg gee-1.0 --pkg gtk+-3.0 --pkg posix --thread \
 				./gmailicon.vala ./mailbox.vala ./feedcontroller.vala ./feed.vala \
 				./dbus/interfaces.vala ./dbus/instance.vala \
 				--main=GmailFeed.main -o gmailnotify
 
 gmailhub: dbus/interfaces.vala dbus/hub.vala
-	valac-0.18 --pkg gee-1.0 --pkg gio-2.0 \
+	valac --pkg gee-1.0 --pkg gio-2.0 \
 				./dbus/interfaces.vala ./dbus/hub.vala \
 				--main=GmailDbusHub.main -o gmailhub
 
 gmailsearch: search-provider/gmailsearchprovider.vala dbus/interfaces.vala
-	valac-0.18 --pkg gio-2.0 --pkg gee-1.0 \
+	valac --pkg gio-2.0 --pkg gee-1.0 \
 				./search-provider/gmailsearchprovider.vala ./dbus/interfaces.vala \
 				--main=GmailSearchProvider.main -o gmailsearch
 
