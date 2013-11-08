@@ -52,10 +52,10 @@ let GmailHubProxy      = Gio.DBusProxy.makeProxyWrapper(GmailHubInterface);
 
 const GmailNotifyButton = new Lang.Class({
    Name: 'GmailNotifyButton',
-   Extends: PanelMenu.SystemStatusButton,
+   Extends: PanelMenu.Button,
 
    _init: function(instanceBus) {
-      this.parent("gmailnotify", "GmailNotify");
+      this.parent(0.25)
 
       this._notifyProxy = new GmailInstanceProxy(Gio.DBus.session,
                                                  instanceBus,
@@ -67,7 +67,17 @@ const GmailNotifyButton = new Lang.Class({
                    "destroy": function() {},
                    "connect": function() {}};
 
+      this.icon = new St.Icon({style_class: 'system-status-icon'});
+
       this._onMessagesChanged();
+
+      this.actor.add_actor(this.icon);
+
+   },
+
+   setIcon: function(iconName) {
+      this.icon.icon_name = iconName;
+      this.emit("icons-changed");
    },
 
    _onMessagesChanged: function() {
@@ -134,7 +144,7 @@ const GmailListener = new Lang.Class({
       Main._data["instances"] = instance_list;
 
       for(let i = 0; i < instance_list.length; i++) {
-         instance = instance_list[i];
+         let instance = instance_list[i];
 
          if(!(instance[0] in this._instances)) {
             Main._data[instance[0]] = instance;
