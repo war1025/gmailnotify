@@ -7,7 +7,10 @@ namespace GmailFeed {
    public delegate void ShowMessagesDelegate();
 
    public delegate void FeedChangeDelegate();
-   public delegate void ConnectSignalsDelegate(FeedChangeDelegate changeDelegate);
+   public delegate void ConnectedChangeDelegate(bool connected);
+   public delegate void ConnectSignalsDelegate(FeedChangeDelegate changeDelegate,
+                                               ConnectedChangeDelegate connectedDelegate);
+
 
    [DBus (name="org.wrowclif.GmailNotify.Instance")]
    public class DbusInstance : Object {
@@ -18,6 +21,7 @@ namespace GmailFeed {
       private unowned ShowMessagesDelegate show_messages_delegate;
 
       public signal void messages_changed();
+      public signal void connected_changed(bool connected);
 
       public DbusInstance(MessageCountDelegate   count_delegate,
                           MessageListDelegate    list_delegate,
@@ -29,11 +33,15 @@ namespace GmailFeed {
          this.name_delegate          = name_delegate;
          this.show_messages_delegate = show_messages_delegate;
 
-         connect_delegate(emit_changes);
+         connect_delegate(emit_messages_changed, emit_connected_changed);
       }
 
-      private void emit_changes() {
+      private void emit_messages_changed() {
          messages_changed();
+      }
+
+      private void emit_connected_changed(bool connected) {
+         connected_changed(connected);
       }
 
       public void get_message_count(out int count) {

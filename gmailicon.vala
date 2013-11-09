@@ -76,9 +76,21 @@ namespace GmailFeed {
                                        () => {return mailbox.items;},
                                        () => {return ad()[0];},
                                        show_message_window,
-                                       (d) => {
-                                          feed.new_message.connect(() => { d(); });
-                                          feed.message_removed.connect(() => { d(); });
+                                       (messages_changed, connected_changed) => {
+                                          feed.new_message.connect(() => {
+                                             messages_changed();
+                                          });
+                                          feed.message_removed.connect(() => {
+                                             messages_changed();
+                                          });
+
+                                          feed.login_success.connect(() => {
+                                             connected_changed(true);
+                                          });
+
+                                          feed.connection_error.connect(() => {
+                                             connected_changed(false);
+                                          });
                                        }
                                       );
 

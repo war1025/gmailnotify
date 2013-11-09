@@ -61,7 +61,12 @@ const GmailNotifyButton = new Lang.Class({
                                                  instanceBus,
                                                  '/org/wrowclif/GmailNotify/Instance');
 
-      this._notifyProxy.connectSignal("MessagesChanged", Lang.bind(this, this._onMessagesChanged));
+      let id1 = this._notifyProxy.connectSignal("MessagesChanged",
+                                                Lang.bind(this, this._onMessagesChanged));
+      let id2 = this._notifyProxy.connectSignal("ConnectedChanged",
+                                                Lang.bind(this, this._onConnectedChanged));
+
+      this.signalIds = [id1, id2];
 
       this.menu = {"toggle" : Lang.bind(this, this._openMessageWindow),
                    "destroy": function() {},
@@ -90,12 +95,25 @@ const GmailNotifyButton = new Lang.Class({
       }));
    },
 
+   _onConnectedChanged: function(proxy, id, connected) {
+      if(!connected[0]) {
+         this.setIcon("gmailnotify-error");
+      } else {
+         this._onMessagesChanged();
+      }
+   },
+
+
    _openMessageWindow: function() {
       this._notifyProxy.OpenMessageWindowRemote();
    },
 
    shutdown: function() {
+      for(let i = 0; i < this.signalIds.length; i++) {
+         this._notifyProxy.disconnectSignal(this.signalIds[i]);
+      }
       this._notifyProxy = null;
+      this.signalIds = [];
       this.destroy();
    }
 });
@@ -115,8 +133,6 @@ const GmailListener = new Lang.Class({
       this._hubProxy = null;
 
       this._instances = {};
-
-      Main._data = {};
 
    },
 
@@ -141,23 +157,17 @@ const GmailListener = new Lang.Class({
    _onClientsChanged: function() {
       let instance_list = this._hubProxy.GetInstanceListSync()[0];
 
-      Main._data["instances"] = instance_list;
-
       for(let i = 0; i < instance_list.length; i++) {
          let instance = instance_list[i];
 
          if(!(instance[0] in this._instances)) {
-            Main._data[instance[0]] = instance;
             this._registerInstance(instance);
          }
       }
    },
 
    _registerInstance: function(instanceInfo) {
-      Main._data["buttonClass"] = GmailNotifyButton
       let instance = new GmailNotifyButton(instanceInfo[1])
-
-      Main._data[instanceInfo[1]] = instance;
 
       this._instances[instanceInfo[0]] = instance;
 

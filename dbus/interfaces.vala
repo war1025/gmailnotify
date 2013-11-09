@@ -17,7 +17,11 @@ namespace GmailFeed {
 
       public abstract void open_message_window() throws IOError;
 
+      public abstract void is_connected(out bool connected) throws IOError;
+
       public signal void messages_changed();
+
+      public signal void connected_changed(bool connected);
    }
 
    /**

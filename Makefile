@@ -64,6 +64,7 @@ install-images: images/error.png images/mail.png images/nomail.png \
 	cp ./images/*png /usr/share/gmailnotify/
 	cp ./images/mail.png /usr/share/pixmaps/gmailnotify.png
 	cp ./images/nomail.png /usr/share/pixmaps/gmailnotify-empty.png
+	cp ./images/error.png /usr/share/pixmaps/gmailnotify-error.png
 
 uninstall-images:
 	rm -rf /usr/share/gmailnotify
