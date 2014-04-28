@@ -29,22 +29,26 @@ const Main = imports.ui.main;
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 
-const GmailInstanceInterface = <interface name="org.wrowclif.GmailNotify.Instance">
-                                  <signal name="MessagesChanged" />
-                                  <method name="OpenMessageWindow" />
-                                  <method name="GetMessageCount" >
-                                     <arg type="i" name="count" direction="out" />
-                                  </method>
-                               </interface>;
+const GmailInstanceInterface = '<node>                                               \
+                               <interface name="org.wrowclif.GmailNotify.Instance">  \
+                                  <signal name="MessagesChanged" />                  \
+                                  <method name="OpenMessageWindow" />                \
+                                  <method name="GetMessageCount" >                   \
+                                     <arg type="i" name="count" direction="out" />   \
+                                  </method>                                          \
+                               </interface>                                          \
+                               </node>';
 
-const GmailHubInterface      = <interface name="org.wrowclif.GmailNotify.Hub">
-                                  <signal name="InstanceAdded" >
-                                     <arg type="(is)" name="newInstance" direction="out" />
-                                  </signal>
-                                  <method name="GetInstanceList">
-                                     <arg type="a(is)" name="instances" direction="out" />
-                                  </method>
-                               </interface>;
+const GmailHubInterface      = '<node>                                                      \
+                               <interface name="org.wrowclif.GmailNotify.Hub">              \
+                                  <signal name="InstanceAdded" >                            \
+                                     <arg type="(is)" name="newInstance" direction="out" /> \
+                                  </signal>                                                 \
+                                  <method name="GetInstanceList">                           \
+                                     <arg type="a(is)" name="instances" direction="out" />  \
+                                  </method>                                                 \
+                               </interface>                                                 \
+                               </node>';
 
 
 let GmailInstanceProxy = Gio.DBusProxy.makeProxyWrapper(GmailInstanceInterface);
