@@ -543,7 +543,10 @@ namespace GmailFeed {
        **/
       internal Message mark_read(string gmail_at, string gmail_ik) {
          this.read = true;
-         return act("rd", gmail_at, gmail_ik);
+         var url = "https://mail.google.com/mail/u/0/h/h?v=c&th=%s".printf(this.id);
+         var message = new Message("GET", url);
+
+         return message;
       }
 
       internal Message toggle_starred(string gmail_at, string gmail_ik) {
