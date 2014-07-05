@@ -190,8 +190,9 @@ namespace GmailFeed {
          this.starImg.pixbuf = this.starred ? STAR_FULL : STAR_EMPTY;
 
          this.subjectLbl.label = this.msg.subject;
-         this.summaryLbl.label = this.msg.summary;
          this.fromLbl.label    = this.msg.author;
+
+         this.summaryLbl.set_markup(this.msg.summary);
 
          this.onMarkReadLeave();
          this.onArchiveLeave();

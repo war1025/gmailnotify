@@ -13,7 +13,7 @@ gmailnotify: feed.vala feedcontroller.vala mailbox.vala gmailicon.vala \
 	valac --enable-experimental -D GLIB_2_32 \
 				--gresources ./gresource.xml \
 				--target-glib=2.38 \
-				--pkg libsecret-1 --pkg json-glib-1.0 \
+				--pkg libsecret-1 --pkg json-glib-1.0 --pkg libnotify \
 				--pkg libsoup-2.4 --pkg gee-0.8 --pkg gtk+-3.0 --pkg posix --thread \
 				./gmailicon.vala ./mailbox.vala ./feedcontroller.vala ./feed.vala \
 				./dbus/interfaces.vala ./dbus/instance.vala \

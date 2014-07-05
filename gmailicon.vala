@@ -332,15 +332,15 @@ namespace GmailFeed {
          });
 
          /**
-          * A hacky way to display a notification when new mail is received
+          * Display a notification when new mail is received
           **/
          feed.newMessage.connect((m) => {
             try {
-               var cmd = "notify-send --hint=int:transient:1 " +
-                         "-i %s \"%s\" \"%s\"".printf(MAIL_ICON, m.author, m.subject);
-
-               Process.spawn_command_line_sync(cmd);
+               var notification = new Notify.Notification(m.author, m.subject, MAIL_ICON);
+               notification.set_hint("transient", true);
+               notification.show();
             } catch(Error e) {
+               print("Error sending notification for new message: %s\n", e.message);
             }
          });
 
@@ -620,6 +620,7 @@ namespace GmailFeed {
 
    void main(string[] args) {
       Gtk.init(ref args);
+      Notify.init("gmail-notify");
 
       var icon = new GmailIcon();
       icon.login();

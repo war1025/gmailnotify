@@ -1,5 +1,4 @@
 
-using Secret;
 using Soup;
 
 namespace GmailFeed {
