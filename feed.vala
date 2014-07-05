@@ -657,7 +657,8 @@ public class GMessage : Object {
 
 DateTime? parseDate(string dateTime) {
    //            "  Fri, 27      Jun     2014         22:     37:     25 -0500
-   var format = /^[^0-9]*([^ ]+) ([^ ]+) ([^ ]+) ([^:]+):([^:]+):([^ ]+) ([+-]?[0-9]{4})/;
+   var format =
+      /^[^0-9]*([^ ]+) ([^ ]+) ([^ ]+) ([^:]+):([^:]+):([^ ]+) ([+-]?[0-9]{4}|[a-zA-Z]{3,4})/;
 
    MatchInfo info = null;
 
