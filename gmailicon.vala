@@ -127,15 +127,23 @@ namespace GmailFeed {
       /**
        * Calls the login dialog, if the login button is pressed, try to log in.
        **/
-      public void login() {
-         var response = this.loginDialog.run();
+      public void login(string? address = null) {
+         LoginDialog.Response response;
+         if(address != null) {
+            this.loginDialog.address = address;
+            response = LoginDialog.Response.LOGIN;
+         } else {
+            response = (LoginDialog.Response) this.loginDialog.run();
+         }
 
          if(response == LoginDialog.Response.LOGIN) {
             feed.login(this.loginDialog.address);
             icon.set_tooltip_text("Logging In...");
          }
 
-         loginDialog.hide();
+         if(address == null) {
+            loginDialog.hide();
+         }
       }
 
       public void authorize() {
@@ -623,7 +631,12 @@ namespace GmailFeed {
       Notify.init("gmail-notify");
 
       var icon = new GmailIcon();
-      icon.login();
+
+      if(args.length >= 2) {
+         icon.login(args[1]);
+      } else {
+         icon.login();
+      }
 
       Gtk.main();
    }
