@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.18.3 -->
+<interface>
+  <requires lib="gtk+" version="3.12"/>
+  <template class="GmailFeedMessageItem" parent="GtkBox">
+    <property name="width_request">400</property>
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="halign">start</property>
+    <property name="margin_left">5</property>
+    <property name="margin_right">5</property>
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="GtkLabel" id="subjectLbl">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="halign">start</property>
+        <property name="valign">center</property>
+        <property name="hexpand">True</property>
+        <property name="label" translatable="yes">Subject</property>
+        <property name="wrap">True</property>
+        <attributes>
+          <attribute name="weight" value="bold"/>
+          <attribute name="underline" value="True"/>
+        </attributes>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">0</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkBox" id="fromBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <child>
+          <object class="GtkLabel" id="from">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">From:</property>
+            <attributes>
+              <attribute name="weight" value="bold"/>
+            </attributes>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="fromLbl">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">start</property>
+            <property name="valign">center</property>
+            <property name="label" translatable="yes">sender</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEventBox" id="starBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="visible_window">False</property>
+            <signal name="button-press-event" handler="onStarClicked" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="enter-notify-event" handler="onStarEnter" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="leave-notify-event" handler="onStarLeave" object="GmailFeedMessageItem" swapped="no"/>
+            <child>
+              <object class="GtkImage" id="starImg">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="stock">gtk-missing-image</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">1</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkBox" id="box3">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <child>
+          <object class="GtkEventBox" id="markReadBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="visible_window">False</property>
+            <signal name="button-press-event" handler="onMarkReadClicked" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="enter-notify-event" handler="onMarkReadEnter" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="leave-notify-event" handler="onMarkReadLeave" object="GmailFeedMessageItem" swapped="no"/>
+            <child>
+              <object class="GtkLabel" id="markReadLbl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Mark as read |</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEventBox" id="archiveBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="visible_window">False</property>
+            <signal name="button-press-event" handler="onArchiveClicked" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="enter-notify-event" handler="onArchiveEnter" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="leave-notify-event" handler="onArchiveLeave" object="GmailFeedMessageItem" swapped="no"/>
+            <child>
+              <object class="GtkLabel" id="archiveLbl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Archive |</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEventBox" id="spamBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="visible_window">False</property>
+            <signal name="button-press-event" handler="onSpamClicked" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="enter-notify-event" handler="onSpamEnter" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="leave-notify-event" handler="onSpamLeave" object="GmailFeedMessageItem" swapped="no"/>
+            <child>
+              <object class="GtkLabel" id="spamLbl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Report Spam |</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEventBox" id="trashBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="visible_window">False</property>
+            <signal name="button-press-event" handler="onTrashClicked" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="enter-notify-event" handler="onTrashEnter" object="GmailFeedMessageItem" swapped="no"/>
+            <signal name="leave-notify-event" handler="onTrashLeave" object="GmailFeedMessageItem" swapped="no"/>
+            <child>
+              <object class="GtkLabel" id="trashLbl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Delete</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">3</property>
+          </packing>
+        </child>
+      </object>
+      <packing>
+        <property name="expand">False</property>
+        <property name="fill">True</property>
+        <property name="position">2</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkLabel" id="summaryLbl">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="halign">start</property>
+        <property name="valign">center</property>
+        <property name="xalign">0</property>
+        <property name="label" translatable="yes">Message body</property>
+        <property name="wrap">True</property>
+        <attributes>
+          <attribute name="foreground" value="#404040404040"/>
+        </attributes>
+      </object>
+      <packing>
+        <property name="expand">True</property>
+        <property name="fill">False</property>
+        <property name="position">3</property>
+      </packing>
+    </child>
+  </template>
+</interface>

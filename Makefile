@@ -5,21 +5,28 @@ clean:
 	rm -f ./gmailsearch
 	rm -f ./gmailhub
 
+gresource.c : gresource.xml $(shell glib-compile-resources --generate-dependencies gresource.xml)
+	glib-compile-resources --generate-source ./gresource.xml
+
 gmailnotify: feed.vala feedcontroller.vala mailbox.vala gmailicon.vala \
-			dbus/interfaces.vala dbus/instance.vala
+			dbus/interfaces.vala dbus/instance.vala gresource.c
 	valac --enable-experimental -D GLIB_2_32 \
-				--pkg libsoup-2.4 --pkg gee-1.0 --pkg gtk+-3.0 --pkg posix --thread \
+				--gresources ./gresource.xml \
+				--target-glib=2.38 \
+				--pkg libsecret-1 --pkg json-glib-1.0 \
+				--pkg libsoup-2.4 --pkg gee-0.8 --pkg gtk+-3.0 --pkg posix --thread \
 				./gmailicon.vala ./mailbox.vala ./feedcontroller.vala ./feed.vala \
 				./dbus/interfaces.vala ./dbus/instance.vala \
+				./gresource.c \
 				--main=GmailFeed.main -o gmailnotify
 
 gmailhub: dbus/interfaces.vala dbus/hub.vala
-	valac --pkg gee-1.0 --pkg gio-2.0 \
+	valac --pkg gee-0.8 --pkg gio-2.0 \
 				./dbus/interfaces.vala ./dbus/hub.vala \
 				--main=GmailDbusHub.main -o gmailhub
 
 gmailsearch: search-provider/gmailsearchprovider.vala dbus/interfaces.vala
-	valac --pkg gio-2.0 --pkg gee-1.0 \
+	valac --pkg gio-2.0 --pkg gee-0.8 \
 				./search-provider/gmailsearchprovider.vala ./dbus/interfaces.vala \
 				--main=GmailSearchProvider.main -o gmailsearch
 

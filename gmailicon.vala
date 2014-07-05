@@ -50,8 +50,12 @@ namespace GmailFeed {
       /**
        * The dialog box for logging in. Also the delegate for passing our credentials to the feed
        **/
-      private Dialog login_dialog;
-      private AuthDelegate ad;
+      private LoginDialog loginDialog;
+
+      private AuthorizationDialog authDialog;
+
+      private OAuthDialog oauthDialog;
+
       /**
        * Update is called automatically every X seconds once logged in. We need to cancel this
        * action if we lose our connection for some reason. So we need to keep track of its id.
@@ -74,21 +78,21 @@ namespace GmailFeed {
          message_window = new Window(WindowType.POPUP);
          gmail_dbus = new DbusInstance(() => {return mailbox.size;},
                                        () => {return mailbox.items;},
-                                       () => {return ad()[0];},
+                                       () => {return loginDialog.address;},
                                        show_message_window,
                                        (messages_changed, connected_changed) => {
-                                          feed.new_message.connect(() => {
+                                          feed.newMessage.connect(() => {
                                              messages_changed();
                                           });
-                                          feed.message_removed.connect(() => {
+                                          feed.messageRemoved.connect(() => {
                                              messages_changed();
                                           });
 
-                                          feed.login_success.connect(() => {
+                                          feed.updateComplete.connect(() => {
                                              connected_changed(true);
                                           });
 
-                                          feed.connection_error.connect(() => {
+                                          feed.feedError.connect(() => {
                                              connected_changed(false);
                                           });
                                        }
@@ -99,7 +103,7 @@ namespace GmailFeed {
          timer_set = false;
 
          build_icon();
-         build_login_dialog();
+         buildLoginDialog();
          build_message_window();
 
          connect_feed_mailbox_signals();
@@ -114,60 +118,58 @@ namespace GmailFeed {
        * and can show it later so if reauthentication is needed they just need to
        * click login and not fill out their info again.
        **/
-      private void build_login_dialog() {
-         login_dialog = new Dialog.with_buttons("Login", null, DialogFlags.MODAL);
-         try {
-            login_dialog.set_icon_from_file(MAIL_ICON);
-         } catch(Error e) {
-         }
-
-         var table = new Table(2, 2, false);
-
-         var name_label = new Label("Username:");
-         name_label.set_alignment(0, 0.5f);
-         var name_entry = new Entry();
-         name_entry.width_chars = 12;
-
-         table.attach_defaults(name_label, 0, 1, 0, 1);
-         table.attach_defaults(name_entry, 1, 2, 0, 1);
-
-         var pass_label = new Label("Password:");
-         pass_label.set_alignment(0, 0.5f);
-         var pass_entry = new Entry();
-         pass_entry.width_chars = 12;
-         pass_entry.visibility = false;
-         pass_entry.invisible_char = '*';
-         pass_entry.activates_default = true;
-
-         table.attach_defaults(pass_label, 0, 1, 1, 2);
-         table.attach_defaults(pass_entry, 1, 2, 1, 2);
-
-         var box = login_dialog.get_content_area();
-         box.pack_start(table, true, true);
-
-         login_dialog.set_default(login_dialog.add_button("Login", 1));
-         login_dialog.add_button("Cancel", 0);
-
-         login_dialog.show_all();
-
-         ad = () => {
-            return {name_entry.text, pass_entry.text};
-         };
+      private void buildLoginDialog() {
+         loginDialog = new LoginDialog();
+         authDialog  = new AuthorizationDialog();
+         oauthDialog = new OAuthDialog();
       }
 
       /**
        * Calls the login dialog, if the login button is pressed, try to log in.
        **/
       public void login() {
-         var response = login_dialog.run();
+         var response = this.loginDialog.run();
 
-         if(response == 1) {
-            feed.login(ad);
+         if(response == LoginDialog.Response.LOGIN) {
+            feed.login(this.loginDialog.address);
             icon.set_tooltip_text("Logging In...");
          }
 
-         login_dialog.hide();
+         loginDialog.hide();
       }
+
+      public void authorize() {
+         feed.getAuthCode();
+         authDialog.authCode = "";
+
+         var response = authDialog.run();
+
+         if(response == AuthorizationDialog.Response.AUTHORIZE) {
+            feed.setAuthCode(this.authDialog.authCode);
+            icon.set_tooltip_text("Authorizing...");
+         }
+
+         authDialog.hide();
+      }
+
+      public void setupOAuthId() {
+         oauthDialog.clientId     = "";
+         oauthDialog.clientSecret = "";
+         oauthDialog.redirectUri  = "";
+
+         var response = oauthDialog.run();
+
+         if(response == OAuthDialog.Response.SAVE) {
+            feed.setOAuthId(oauthDialog.clientId,
+                            oauthDialog.clientSecret,
+                            oauthDialog.redirectUri);
+            icon.set_tooltip_text("Setting credentials...");
+         }
+
+         oauthDialog.hide();
+      }
+
+
 
       /**
        * Builds the status icon. This involves building the icon and the popup menu.
@@ -202,7 +204,7 @@ namespace GmailFeed {
          /**
           * This is the shutdown signal that we receive from the feed
           **/
-         feed.feed_closed.connect(() => {
+         feed.feedClosed.connect(() => {
             Gtk.main_quit();
          });
 
@@ -213,12 +215,12 @@ namespace GmailFeed {
          popup_menu.show_all();
          update.hide();
 
-         feed.login_success.connect(() => {
+         feed.updateComplete.connect(() => {
             login.hide();
             update.show();
          });
 
-         feed.connection_error.connect(() => {
+         feed.feedError.connect(() => {
             login.show();
             update.hide();
          });
@@ -304,34 +306,9 @@ namespace GmailFeed {
       private void connect_feed_mailbox_signals() {
          // When we get a new message we need to connect its signals to the
          // feed so they will do something useful
-         feed.new_message.connect((m) => {
-            var mail = new MailItem(m);
-            var id = mail.id;
-            mailbox.add_message(mail);
-
-            mail.mark_read_clicked.connect(() => {
-               feed.mark_read(id);
-            });
-
-            mail.archive_clicked.connect(() => {
-               feed.archive(id);
-            });
-
-            mail.spam_clicked.connect(() => {
-               feed.spam(id);
-            });
-
-            mail.delete_clicked.connect(() => {
-               feed.trash(id);
-            });
-
-            mail.star_clicked.connect(() => {
-               feed.toggle_starred(id);
-            });
-
-            mail.important_clicked.connect(() => {
-               feed.toggle_important(id);
-            });
+         feed.newMessage.connect((m) => {
+            var msg = new MessageItem(m, feed);
+            mailbox.add_message(msg);
          });
 
          /**
@@ -341,13 +318,13 @@ namespace GmailFeed {
           * Then reposition the visual in the message_box so it is displayed in the
           * correct position.
           **/
-         feed.new_message.connect((m) => {
-            var visual = mailbox[m.id].visual;
+         feed.newMessage.connect((m) => {
+            var msg = mailbox[m.id];
             int c = 0;
             foreach(var mess in mailbox.items) {
-               if(mess.id == m.id) {
-                  message_box.pack_start(visual, false, false, 5);
-                  message_box.reorder_child(visual, c);
+               if(mess.id == msg.id) {
+                  message_box.pack_start(msg, false, false, 5);
+                  message_box.reorder_child(msg, c);
                   break;
                }
                c++;
@@ -357,13 +334,21 @@ namespace GmailFeed {
          /**
           * A hacky way to display a notification when new mail is received
           **/
-         feed.new_message.connect((m) => {
+         feed.newMessage.connect((m) => {
             try {
                var cmd = "notify-send --hint=int:transient:1 " +
                          "-i %s \"%s\" \"%s\"".printf(MAIL_ICON, m.author, m.subject);
 
                Process.spawn_command_line_sync(cmd);
             } catch(Error e) {
+            }
+         });
+
+         feed.updatedMessage.connect((m) => {
+            var mess = mailbox[m.id];
+
+            if(mess != null) {
+               mess.updateMessage(m);
             }
          });
 
@@ -374,19 +359,19 @@ namespace GmailFeed {
           * until they are all done, but for an individual message we would like to
           * redraw the window as soon as we have confirmation that it was removed.
           **/
-         feed.message_read.connect(() => {
+         feed.messageRead.connect(() => {
             request_update = true;
          });
 
-         feed.message_archived.connect(() => {
+         feed.messageArchived.connect(() => {
             request_update = true;
          });
 
-         feed.message_spammed.connect(() => {
+         feed.messageSpammed.connect(() => {
             request_update = true;
          });
 
-         feed.message_trashed.connect(() => {
+         feed.messageTrashed.connect(() => {
             request_update = true;
          });
 
@@ -395,26 +380,28 @@ namespace GmailFeed {
           * the feed. This needs to happen before we remove the message from our mailbox since
           * that is our link to the visual.
           **/
-         feed.message_removed.connect((id) => {
-            var visual = mailbox[id].visual;
-            message_box.remove(visual);
-            if(mailbox.size == 1) {
-               message_window.hide();
-               message_window.resize(5, 2);
+         feed.messageRemoved.connect((id) => {
+            var msg = mailbox[id];
+            if(msg != null) {
+               message_box.remove(msg);
+               if(mailbox.size == 1) {
+                  message_window.hide();
+                  message_window.resize(5, 2);
+               }
             }
          });
 
          /**
           * The message is removed from the feed, so remove it from the mailbox.
           **/
-         feed.message_removed.connect((id) => {
+         feed.messageRemoved.connect((id) => {
             mailbox.remove_message(id);
          });
 
          /**
           * Here we update everything if we have been requested to
           **/
-         feed.message_removed.connect(() => {
+         feed.messageRemoved.connect(() => {
             if(request_update) {
                updateUI();
             }
@@ -422,30 +409,11 @@ namespace GmailFeed {
          });
 
          /**
-          * Signals to toggle the starred / important status of a message
-          **/
-         feed.message_starred.connect((id) => {
-            mailbox.star_message(id);
-         });
-
-         feed.message_unstarred.connect((id) => {
-            mailbox.unstar_message(id);
-         });
-
-         feed.message_important.connect((id) => {
-            mailbox.important_message(id);
-         });
-
-         feed.message_unimportant.connect((id) => {
-            mailbox.unimportant_message(id);
-         });
-
-         /**
           * If a connection error occurs we need to reactivate any messages that had pending
           * requests since we don't know if the action went through or not. Otherwise we could
           * have messages stuck in the mailbox that we have no way of removing without a restart
           **/
-         feed.connection_error.connect(() => {
+         feed.feedError.connect(() => {
             mailbox.reactivate_all();
          });
       }
@@ -454,7 +422,7 @@ namespace GmailFeed {
        * Connect signals from the feed that we want to alter the icon or tooltip in some way.
        **/
       private void connect_feed_icon_signals() {
-         feed.login_success.connect(() => {
+         feed.loginSuccess.connect(() => {
             icon.set_from_file(NO_MAIL_ICON);
             icon.set_tooltip_text("Updating...");
             feed.update();
@@ -473,24 +441,39 @@ namespace GmailFeed {
           * If the user cancels the login request, they can select login from the right
           * click menu later.
           **/
-         feed.connection_error.connect(() => {
+         feed.feedError.connect((error) => {
             icon.set_from_file(ERROR_ICON);
             icon.set_tooltip_text("Connection Error...");
-            if(timer_set) {
+            if(error != AuthError.UNKNOWN && timer_set) {
                Source.remove(timer_id);
                timer_set = false;
+            } else if(error == AuthError.UNKNOWN) {
+               if(!timer_set) {
+                  login();
+               }
             }
-            login();
+
+            if(error == AuthError.NEED_TOKEN) {
+               login();
+            } else if(error == AuthError.INVALID_AUTH) {
+               authorize();
+            } else if(error == AuthError.NEED_OAUTH_ID) {
+               setupOAuthId();
+            }
          });
 
-         feed.update_complete.connect(() => {
+         feed.updateComplete.connect(() => {
             updateUI();
+         });
+
+         feed.requestAuthCode.connect((requestUrl) => {
+            this.authDialog.url = requestUrl;
          });
       }
 
       private void updateUI() {
          var count = mailbox.size;
-         var user = ad()[0];
+         var user = this.loginDialog.address;
          if(count == 0) {
             icon.set_tooltip_text("%s: No mail...".printf(user));
             icon.set_from_file(NO_MAIL_ICON);
@@ -511,6 +494,128 @@ namespace GmailFeed {
             message_window.resize(5, 5);
          }
       }
+   }
+
+   [GtkTemplate (ui = "/org/wrowclif/gmailnotify/ui/login_dialog.ui")]
+   public class LoginDialog : Dialog {
+      public enum Response {
+         LOGIN = 1,
+         CANCEL = 0
+      }
+
+      public string address {
+         get { return addressEntry.text; }
+         set { addressEntry.text = value; }
+      }
+
+      [GtkChild]
+      private Entry addressEntry;
+
+      public LoginDialog() {
+
+
+      }
+
+      [GtkCallback]
+      private void onLogin() {
+         this.response(Response.LOGIN);
+      }
+
+      [GtkCallback]
+      private void onCancel() {
+         this.response(Response.CANCEL);
+      }
+
+   }
+
+
+   [GtkTemplate (ui = "/org/wrowclif/gmailnotify/ui/auth_code_dialog.ui")]
+   public class AuthorizationDialog : Dialog {
+      public enum Response {
+         AUTHORIZE = 1,
+         CANCEL    = 0
+      }
+
+      public string url {
+         get { return authUrlEntry.text; }
+         set { authUrlEntry.text = value; }
+      }
+
+      public string authCode {
+         get { return authCodeEntry.text; }
+         set { authCodeEntry.text = value; }
+      }
+
+      [GtkChild]
+      private Entry authUrlEntry;
+
+      [GtkChild]
+      private Entry authCodeEntry;
+
+      public AuthorizationDialog() {
+
+
+      }
+
+      [GtkCallback]
+      private void onAuthorize() {
+         this.response(Response.AUTHORIZE);
+      }
+
+      [GtkCallback]
+      private void onCancel() {
+         this.response(Response.CANCEL);
+      }
+
+   }
+
+
+   [GtkTemplate (ui = "/org/wrowclif/gmailnotify/ui/oauth_dialog.ui")]
+   public class OAuthDialog : Dialog {
+      public enum Response {
+         SAVE   = 1,
+         CANCEL = 0
+      }
+
+      public string clientId {
+         get { return clientIdEntry.text; }
+         set { clientIdEntry.text = value; }
+      }
+
+      public string clientSecret {
+         get { return clientSecretEntry.text; }
+         set { clientSecretEntry.text = value; }
+      }
+
+      public string redirectUri {
+         get { return redirectUriEntry.text; }
+         set { redirectUriEntry.text = value; }
+      }
+
+      [GtkChild]
+      private Entry clientIdEntry;
+
+      [GtkChild]
+      private Entry clientSecretEntry;
+
+      [GtkChild]
+      private Entry redirectUriEntry;
+
+      public OAuthDialog() {
+
+
+      }
+
+      [GtkCallback]
+      private void onSave() {
+         this.response(Response.SAVE);
+      }
+
+      [GtkCallback]
+      private void onCancel() {
+         this.response(Response.CANCEL);
+      }
+
    }
 
    void main(string[] args) {

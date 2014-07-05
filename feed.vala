@@ -1,576 +1,691 @@
+
+using Secret;
 using Soup;
-using Gee;
 
 namespace GmailFeed {
 
-   public enum ConnectionError {
-      UNAUTHORIZED,
-      DISCONNECTED,
-      UNKNOWN
+public class OAuthFields {
+   public const string CLIENT_ID = "client_id";
+   public const string CLIENT_SECRET = "client_secret";
+   public const string REDIRECT_URI = "redirect_uri";
+   public const string BEARER_TOKEN = "bearer_token";
+   public const string REFRESH_TOKEN = "refresh_token";
+}
+
+public enum AuthError {
+   SUCCESS,
+   UNKNOWN,
+   NEED_TOKEN,
+   INVALID_AUTH,
+   NEED_OAUTH_ID
+}
+
+public delegate AuthError AuthCodeDelegate(string authCode);
+
+public class Feed : Object {
+   public signal void newMessage(GMessage msg);
+   public signal void updatedMessage(GMessage msg);
+   public signal void messageStarred(string id);
+   public signal void messageUnstarred(string id);
+
+   /**
+    * There is a generic message removed signal, along with signals for the specific
+    * reason a message was removed. This is so you can act generally or specifically
+    * without needing to duplicate excessive amounts of code.
+    **/
+   public signal void messageRemoved(string id);
+   public virtual signal void messageRead(string id) {
+      messageRemoved(id);
+   }
+   public virtual signal void messageArchived(string id) {
+      messageRemoved(id);
+   }
+   public virtual signal void messageTrashed(string id) {
+      messageRemoved(id);
+   }
+   public virtual signal void messageSpammed(string id) {
+      messageRemoved(id);
    }
 
    /**
-    * We want a username and password but we aren't picky about how we get it.
-    * Probably this is an unneccesary design step, but it doesn't hurt anything
-    * and gives some added flexibility.
+    * During an update several new messages might be added and other removed, this signal
+    * indicates that all of those actions are complete so that you can act
+    * once rather than many times.
+    *
+    * @param result: The error that the update completed with.
     **/
-   public delegate string[] AuthDelegate();
+   public signal void updateComplete(AuthError result);
 
-   /**
-    * The Feed is what actually logs in, connects to the atom feed, and sends messages to
-    * gmail to take desired actions.
-    **/
-   public class Feed : Object {
-      public signal void new_message(GMessage msg);
-      public signal void message_starred(string id);
-      public signal void message_unstarred(string id);
-      public signal void message_important(string id);
-      public signal void message_unimportant(string id);
+   private delegate void SuccessSignal(string msgId);
 
-      /**
-       * There is a generic message removed signal, along with signals for the specific
-       * reason a message was removed. This is so you can act generally or specifically
-       * without needing to duplicate excessive amounts of code.
-       **/
-      public signal void message_removed(string id);
-      public virtual signal void message_read(string id) {
-         message_removed(id);
+   public string address {get; private set;}
+
+   private string? clientId;
+   private string? clientSecret;
+   private string? redirectUri;
+
+   private string? bearerToken;
+   private string? refreshToken;
+
+   private Session       session;
+   private Secret.Schema schema;
+
+   private Gee.Map<string, GMessage> messages;
+
+   public Gee.Collection<GMessage> inbox {
+      owned get {
+         return this.messages.values;
       }
-      public virtual signal void message_archived(string id) {
-         message_removed(id);
+   }
+
+   public int count {
+      get {
+         return this.messages.size;
       }
-      public virtual signal void message_trashed(string id) {
-         message_removed(id);
+   }
+
+   public Feed(string address) {
+      this.address = address;
+
+      this.create_session();
+
+      this.schema  = new Secret.Schema("org.wrowclif.gmailnotify", Secret.SchemaFlags.NONE,
+                                       "address", Secret.SchemaAttributeType.STRING,
+                                       "field",   Secret.SchemaAttributeType.STRING);
+
+      this.messages = new Gee.HashMap<string, GMessage>();
+   }
+
+   public void loadInfo() {
+      this.bearerToken = Secret.password_lookup_sync(this.schema, null,
+                                                     "address", this.address,
+                                                     "field", OAuthFields.BEARER_TOKEN);
+
+      this.refreshToken = Secret.password_lookup_sync(this.schema, null,
+                                                      "address", this.address,
+                                                      "field", OAuthFields.REFRESH_TOKEN);
+
+      this.clientId = Secret.password_lookup_sync(this.schema, null,
+                                                  "address", this.address,
+                                                  "field", OAuthFields.CLIENT_ID);
+
+      this.clientSecret = Secret.password_lookup_sync(this.schema, null,
+                                                      "address", this.address,
+                                                      "field", OAuthFields.CLIENT_SECRET);
+
+      this.redirectUri = Secret.password_lookup_sync(this.schema, null,
+                                                     "address", this.address,
+                                                     "field", OAuthFields.REDIRECT_URI);
+   }
+
+   public bool hasOAuthId() {
+      return this.clientId != null;
+   }
+
+   public bool hasBearerToken() {
+      return this.bearerToken != null;
+   }
+
+   private void create_session() {
+      this.session = new SessionSync();
+      this.session.timeout = 15;
+   }
+
+   public AuthError setOAuthInfo(string clientId, string clientSecret, string redirectUri) {
+      var success = Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
+                                               "%s client ID".printf(this.address),
+                                               clientId, null,
+                                               "address", this.address,
+                                               "field", OAuthFields.CLIENT_ID);
+
+      success &= Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
+                                            "%s client secret".printf(this.address),
+                                            clientSecret, null,
+                                            "address", this.address,
+                                            "field", OAuthFields.CLIENT_SECRET);
+
+      success &= Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
+                                            "%s redirect_uri".printf(this.address),
+                                            redirectUri, null,
+                                            "address", this.address,
+                                            "field", OAuthFields.REDIRECT_URI);
+
+      if(success) {
+         this.clientId = clientId;
+         this.clientSecret = clientSecret;
+         this.redirectUri = redirectUri;
+
+         return AuthError.INVALID_AUTH;
+      } else {
+         this.clientId = null;
+         this.clientSecret = null;
+         this.redirectUri = null;
+
+         return AuthError.NEED_OAUTH_ID;
       }
-      public virtual signal void message_spammed(string id) {
-         message_removed(id);
+   }
+
+   public string? getAuthUrl() {
+      this.create_session();
+
+      if(!this.hasOAuthId()) {
+         return null;
       }
-      /**
-       * If an error occurs with the connection, we will send this signal.
-       **/
-      public signal void connection_error(ConnectionError code);
-      /**
-       * Notification that we have logged in successfully. You can't really do anything useful
-       * until you log in.
-       **/
-      public signal void login_success(string username);
-      /**
-       * During an update several new messages might be added and other removed, this signal
-       * indicates that all of those actions are complete so that you can act
-       * once rather than many times.
-       **/
-      public signal void update_complete();
 
-      /**
-       * Regexes used to parse login
-       **/
-      private static Regex form =
-          /(?m)<form novalidate method="post"\s+action="([^"]+)" id="gaia_loginform"(?s).*<\/form>/;
-      private static Regex inputx = /(?m)<input[^<>]+>/;
-      private static Regex namex = /(?m)name="([^"]+)"/;
-      private static Regex valx = /(?m)value=['"]([^'"]*)['"]/;
-      private static Regex ikx = /GLOBALS=([^,]*,){9}"([^"]*)","([^"]*)/;
+      var auth_addr = "https://accounts.google.com/o/oauth2/auth";
 
-      /**
-       * Regexes used to parse feed updates
-       **/
-      private static Regex midx = /<link.*message_id=([^&]+)&.*\/>/;
-      private static Regex authorx = /<name>([^<]*)<\/name>/;
-      private static Regex summaryx = /<summary>([^<]*)<\/summary>/;
-      private static Regex titlex = /<title>([^<]*)<\/title>/;
-      private static Regex timex = /<issued>([^<]*)<\/issued>/;
+      var scope = "https://www.googleapis.com/auth/gmail.modify";
 
-      /**
-       * The session and cookies for our connection to gmail.
-       **/
-      private Session session;
-      private CookieJar cookiejar;
-      /**
-       * Map message ids to GMessage objects. We have two maps so that we can do a swap
-       * and compare to see what is new and what we already have. This allows us to keep
-       * existing GMessages and not make new instances every time.
-       **/
-      private Gee.Map<string, GMessage> messages;
-      private Gee.Map<string, GMessage> messages2;
-      /**
-       * This string is important for authentication when we are acting on messages
-       **/
-      private string gmail_at;
-      private string gmail_ik;
+      var query = new HashTable<string, string>(str_hash, str_equal);
 
-      /**
-       * How many messages are in the feed
-       **/
-      public int count {
-         get {
-            return messages.size;
+      query["redirect_uri"] = this.redirectUri;
+      query["scope"] = scope;
+      query["response_type"] = "code";
+      query["client_id"] = this.clientId;
+
+      var auth_uri = new Soup.URI(auth_addr);
+
+      auth_uri.set_query_from_form(query);
+
+      return auth_uri.to_string(false);
+   }
+
+   public AuthError setAuthCode(string authCode) {
+      var token_addr = "https://accounts.google.com/o/oauth2/token";
+      var token_msg  = new Message("POST", token_addr);
+
+      var query = new HashTable<string, string>(str_hash, str_equal);
+
+      query["code"] = authCode;
+      query["client_id"] = this.clientId;
+      query["client_secret"] = this.clientSecret;
+      query["redirect_uri"] = this.redirectUri;
+      query["grant_type"] = "authorization_code";
+      var data = Form.encode_hash(query);
+
+      token_msg.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, data.data);
+
+      session.send_message(token_msg);
+
+      if(token_msg.status_code != 200) {
+         if(token_msg.status_code == 401) {
+            Secret.password_clear_sync(this.schema, null,
+                                       "address", this.address,
+                                       "field", OAuthFields.BEARER_TOKEN);
+
+            Secret.password_clear_sync(this.schema, null,
+                                       "address", this.address,
+                                       "field", OAuthFields.REFRESH_TOKEN);
+            this.bearerToken  = null;
+            this.refreshToken = null;
+         }
+
+         return AuthError.NEED_OAUTH_ID;
+      }
+
+      var parser = new Json.Parser();
+      parser.load_from_data((string) token_msg.response_body.data);
+
+      var response = parser.get_root();
+
+      var response_dict = response.get_object();
+
+      var bearer_token  = response_dict.get_string_member("access_token");
+      var refresh_token = response_dict.get_string_member("refresh_token");
+
+
+      Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
+                                 "%s bearer token".printf(this.address),
+                                 bearer_token, null,
+                                 "address", this.address,
+                                 "field", OAuthFields.BEARER_TOKEN);
+
+      Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
+                                 "%s refresh token".printf(this.address),
+                                 refresh_token, null,
+                                 "address", this.address,
+                                 "field", OAuthFields.REFRESH_TOKEN);
+
+      this.bearerToken  = bearer_token;
+      this.refreshToken = refresh_token;
+
+      return AuthError.SUCCESS;
+   }
+
+   public AuthError refreshBearerToken() {
+      this.create_session();
+
+      if(!this.hasOAuthId()) {
+         return AuthError.NEED_OAUTH_ID;
+      } else if(this.refreshToken == null) {
+         return AuthError.INVALID_AUTH;
+      }
+
+      var token_addr = "https://accounts.google.com/o/oauth2/token";
+      var token_msg  = new Message("POST", token_addr);
+
+      var query = new HashTable<string, string>(str_hash, str_equal);
+
+      query["refresh_token"] = this.refreshToken;
+      query["client_id"]     = this.clientId;
+      query["client_secret"] = this.clientSecret;
+      query["grant_type"]    = "refresh_token";
+
+      var data = Form.encode_hash(query);
+
+      token_msg.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, data.data);
+
+      session.send_message(token_msg);
+
+      if(token_msg.status_code == 200) {
+         var parser = new Json.Parser();
+         parser.load_from_data((string) token_msg.response_body.data);
+
+         var response = parser.get_root();
+
+         var response_dict = response.get_object();
+
+         this.bearerToken = response_dict.get_string_member("access_token");
+
+         Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
+                                    "%s bearer token".printf(this.address),
+                                    this.bearerToken, null,
+                                    "address", this.address,
+                                    "field", OAuthFields.BEARER_TOKEN);
+
+         return AuthError.SUCCESS;
+      } else if(token_msg.status_code == 401) {
+         Secret.password_clear_sync(this.schema, null,
+                                    "address", this.address,
+                                    "field", OAuthFields.BEARER_TOKEN);
+
+         Secret.password_clear_sync(this.schema, null,
+                                    "address", this.address,
+                                    "field", OAuthFields.REFRESH_TOKEN);
+
+         this.bearerToken  = null;
+         this.refreshToken = null;
+
+         return AuthError.INVALID_AUTH;
+      }
+
+      return AuthError.NEED_TOKEN;
+   }
+
+   public AuthError update() {
+      AuthError result;
+
+      if(!this.hasOAuthId()) {
+         this.updateComplete(AuthError.NEED_OAUTH_ID);
+         return AuthError.NEED_OAUTH_ID;
+      }
+
+      if(!this.hasBearerToken()) {
+         result = this.refreshBearerToken();
+         if(result != AuthError.SUCCESS) {
+            this.updateComplete(result);
+            return result;
          }
       }
 
-      public Feed() {
-         messages = new HashMap<string, GMessage>();
-         messages2 = new HashMap<string, GMessage>();
-         gmail_at = "";
+      result = this.refreshInbox();
+
+      if(result == AuthError.NEED_TOKEN) {
+         result = this.refreshBearerToken();
+         if(result != AuthError.SUCCESS) {
+            this.updateComplete(result);
+            return result;
+         }
+
+         result = this.refreshInbox();
       }
 
-      private void create_session() {
-         session = new SessionSync();
-         cookiejar = new CookieJar();
-         session.add_feature(cookiejar);
-         session.timeout = 15;
+      this.updateComplete(result);
+      return result;
+   }
+
+   public AuthError refreshInbox() {
+      if(!this.hasBearerToken()) {
+         return AuthError.NEED_TOKEN;
       }
 
-      /**
-       * Log into gmail.
-       **/
-      public bool login(AuthDelegate ad, int numRetries = 5) {
-         create_session();
+      var inbox_msg = this.getUrl("/messages?labelIds=INBOX&q=is:unread");
 
-         // Contact the login, this will give us the form info to submit
-         var message = new Message("GET",
-                                   "https://www.google.com/accounts/ServiceLogin?service=mail");
-         message.request_headers.append("User-Agent",
-                                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ "
-                                           + "(KHTML, like Gecko) Version/5.0 Safari/534.26+");
+      if(inbox_msg.status_code != 200) {
+         if(inbox_msg.status_code == 401) {
+            this.bearerToken = null;
+            return AuthError.NEED_TOKEN;
+         }
+         return AuthError.UNKNOWN;
+      }
 
-         session.send_message(message);
 
-         if(message.status_code != 200) {
-            if(numRetries == 0) {
-               handle_error(message.status_code);
-               return false;
-            } else {
-               login(ad, numRetries -1);
-               return gmail_at != "";
+      var parser = new Json.Parser();
+      parser.load_from_data((string) inbox_msg.response_body.data);
+      var root = parser.get_root();
+      var inbox = root.get_object();
+
+      var new_msgs = new Gee.HashSet<string>();
+
+      if(inbox.has_member("messages")) {
+         var msg_json = inbox.get_array_member("messages");
+
+         for(uint idx = 0; idx < msg_json.get_length(); idx++) {
+            var msg = msg_json.get_object_element(idx);
+
+            var id = msg.get_string_member("id");
+
+            new_msgs.add(id);
+         }
+      }
+
+      var current_msgs = this.messages.keys;
+
+      var to_add = new Gee.HashSet<string>();
+      to_add.add_all(new_msgs);
+      to_add.remove_all(current_msgs);
+
+      var to_remove = new Gee.HashSet<string>();
+      to_remove.add_all(current_msgs);
+      to_remove.remove_all(new_msgs);
+
+      var to_update = new Gee.HashSet<string>();
+      to_update.add_all(current_msgs);
+      to_update.retain_all(new_msgs);
+
+      foreach(string msg_id in to_remove) {
+         this.messages.unset(msg_id);
+         this.messageRemoved(msg_id);
+      }
+
+      foreach(string msg_id in to_add) {
+         var msg = new GMessage(msg_id);
+
+         var request = this.getUrl("/messages/%s".printf(msg_id));
+
+         if(request.status_code == 200) {
+            var success = msg.fillDetails((string) request.response_body.data);
+
+            if(success) {
+               this.messages[msg_id] = msg;
+               this.newMessage(msg);
             }
          }
+      }
 
-         // Reset the gmail_at if it exists
-         gmail_at = "";
+      foreach(string msg_id in to_update) {
+         var msg = this.messages[msg_id];
+         var request = this.getUrl("/messages/%s".printf(msg_id));
 
-         // Put all of our form data into this table so we can encode and submit it
-         var table = new HashTable<string, string>(str_hash, str_equal);
+         if(request.status_code == 200) {
+            var success = msg.fillDetails((string) request.response_body.data);
 
-         var body = (string) message.response_body.data;
-
-         MatchInfo info = null;
-         MatchInfo namei = null;
-         MatchInfo vali = null;
-
-         form.match(body, 0, out info);
-
-         var gaiaform = info.fetch(0);
-         var action = info.fetch(1);
-
-         if(gaiaform == null) {
-            if(numRetries == 0) {
-               handle_error(message.status_code);
-               return false;
-            } else {
-               login(ad, numRetries -1);
-               return gmail_at != "";
+            if(success) {
+               this.updatedMessage(msg);
             }
          }
+      }
 
-         inputx.match(gaiaform, 0, out info);
 
-         try {
-            do {
-               var field = info.fetch(0);
-               namex.match(field, 0, out namei);
-               valx.match(field, 0, out vali);
+      return AuthError.SUCCESS;
+   }
 
-               var name = namei.fetch(1);
-               var val = (vali.matches()) ? vali.fetch(1) : "";
-               table.set(name, val);
-            } while(info.next());
-         } catch(GLib.RegexError e) {
-            stdout.printf("Error matching regex");
+   public AuthError markRead(string msgId) {
+      return this.modify(msgId, {}, {"UNREAD"}, (id) => {this.messageRead(id);});
+   }
+
+   public AuthError unstarMsg(string msgId) {
+      if(! this.messages.has_key(msgId)) {
+         return AuthError.UNKNOWN;
+      }
+
+      return this.modify(msgId, {}, {"STARRED"}, (id) => {this.messageUnstarred(id);});
+   }
+
+   public AuthError starMsg(string msgId) {
+      if(! this.messages.has_key(msgId)) {
+         return AuthError.UNKNOWN;
+      }
+
+      return this.modify(msgId, {"STARRED"}, {}, (id) => {this.messageStarred(id);});
+   }
+
+   public AuthError archive(string msgId) {
+      return this.modify(msgId, {"ARCHIVED"}, {"INBOX"}, (id) => {this.messageArchived(id);});
+   }
+
+   public AuthError trash(string msgId) {
+      return this.modify(msgId, {"TRASH"}, {"INBOX"}, (id) => {this.messageTrashed(id);});
+   }
+
+   public AuthError spam(string msgId) {
+      return this.modify(msgId, {"SPAM"}, {"INBOX"}, (id) => {this.messageSpammed(id);});
+   }
+
+   private AuthError modify(string msgId, string[] addLabels, string[] removeLabels,
+                            SuccessSignal successSignal) {
+      if (this.bearerToken == null) {
+         return AuthError.NEED_TOKEN;
+      }
+
+      if(!this.messages.has_key(msgId)) {
+         return AuthError.UNKNOWN;
+      }
+
+      var modify_url = buildUrl("/messages/%s/modify".printf(msgId));
+
+      var builder = new Json.Builder();
+
+      builder.begin_object();
+      builder.set_member_name("addLabelIds");
+      builder.begin_array();
+      foreach(var label in addLabels) {
+         builder.add_string_value(label);
+      }
+      builder.end_array();
+
+      builder.set_member_name("removeLabelIds");
+      builder.begin_array();
+      foreach(var label in removeLabels) {
+         builder.add_string_value(label);
+      }
+      builder.end_array();
+
+      builder.end_object();
+
+      var generator = new Json.Generator();
+      generator.set_root(builder.get_root());
+
+      var data = generator.to_data(null);
+
+      var modify_msg = new Soup.Message("POST", modify_url);
+
+      modify_msg.request_headers.append("Authorization", "Bearer %s".printf(this.bearerToken));
+      modify_msg.set_request("application/json", MemoryUse.COPY, data.data);
+
+      session.send_message(modify_msg);
+
+      if(modify_msg.status_code > 400) {
+         if(modify_msg.status_code == 401) {
+            this.bearerToken = null;
+            return AuthError.NEED_TOKEN;
          }
+         return AuthError.UNKNOWN;
+      }
 
-         // Run the authentication delegate to get our credentials.
-         var at = ad();
+      successSignal(msgId);
+      return AuthError.SUCCESS;
+   }
 
-         // Fill in login data, change the continue link so it goes to gmail
-         table.set("Email", at[0]);
-         table.set("Passwd", at[1]);
-         table.set("continue", "http://mail.google.com/mail/?shva=1");
+   private string buildUrl(string end) {
+      var base_addr = "https://www.googleapis.com/gmail/v1/users/me%s";
 
-         var fm = Form.encode_hash(table);
+      return base_addr.printf(end);
+   }
 
-         // Send the form
-         message = new Message("POST", action);
+   private Message getUrl(string url) {
+      var get_msg = new Message("GET", buildUrl(url));
 
-         message.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, fm.data);
-         message.request_headers.append("User-Agent",
-                                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.26+ "
-                                           + "(KHTML, like Gecko) Version/5.0 Safari/534.26+");
+      get_msg.request_headers.append("Authorization", "Bearer %s".printf(this.bearerToken));
 
-         session.send_message(message);
+      session.send_message(get_msg);
 
-         ikx.match((string) message.response_body.data, 0, out info);
+      return get_msg;
+   }
 
-         gmail_ik = info.fetch(2);
-         var username = info.fetch(3);
 
-         // Get our gmail_at cookie
-         var cookies = cookiejar.all_cookies();
-         for(int i = 0; i < cookies.length(); i++) {
-            unowned Cookie c = cookies.nth_data(i);
-            if(c.name == "GMAIL_AT") {
-               gmail_at = URI.encode(c.value, null);
-            }
-         }
 
-         /**
-          * We have only logged in successfully if we have a gmail_at string
-          * Otherwise there was an error
-          **/
-         if(gmail_at != "") {
-            login_success(username);
-         } else {
-            // We get a 200 code even if we weren't authorized so change this to a 401 so
-            // we know the credentials were wrong.
-            if(message.status_code == 200) {
-               handle_error(401);
-            } else {
-               if(numRetries == 0) {
-                  handle_error(message.status_code);
+}
+
+public class GMessage : Object {
+   public string author {get; private set; default = "No Author";}
+   public string subject {get; private set; default = "No Subject";}
+   public string summary {get; private set; default = "";}
+   public string id {get; private set; default = "";}
+   public string threadId {get; private set; default = "";}
+   public DateTime time {get; private set; default = new DateTime.now_local();}
+
+   public bool read {
+      get {
+         return ! ("INBOX" in this.labels);
+      }
+   }
+
+   public bool starred {
+      get {
+         return "STARRED" in this.labels;
+      }
+   }
+
+   private Gee.List<string> labels;
+
+   public GMessage(string id) {
+      this.id = id;
+
+      this.labels = new Gee.ArrayList<string>();
+   }
+
+   public GMessage.copy(GMessage other) {
+      this.author = other.author;
+      this.subject = other.subject;
+      this.summary = other.summary;
+      this.id = other.id;
+      this.threadId = other.threadId;
+      this.time = other.time;
+
+      this.labels = new Gee.ArrayList<string>();
+      this.labels.add_all(other.labels);
+   }
+
+   public bool fillDetails(string detailsStr) {
+      var parser = new Json.Parser();
+      parser.load_from_data(detailsStr);
+      var root = parser.get_root();
+      var details = root.get_object();
+
+      var id = details.get_string_member("id");
+
+      if(id != this.id) {
+         return false;
+      }
+
+      this.threadId = details.get_string_member("threadId");
+
+      var payload = details.get_object_member("payload");
+      var headers = payload.get_array_member("headers");
+
+      var author_rx = /^(.*)<[^<>]+>$/;
+
+      for(uint idx = 0; idx < headers.get_length(); idx++) {
+         var header = headers.get_object_element(idx);
+
+         var name = header.get_string_member("name").down();
+         var val  = header.get_string_member("value");
+
+         switch(name) {
+
+            case "date" :
+               this.time = parseDate(val);
+               break;
+            case "subject" :
+               this.subject = val;
+               break;
+            case "from" :
+               MatchInfo info;
+               author_rx.match(val, 0, out info);
+               if(info.fetch(0) != null) {
+                  this.author = info.fetch(1).replace("\"", "");
                } else {
-                  login(ad, numRetries -1);
+                  this.author = val;
                }
-            }
-         }
-         return gmail_at != "";
-      }
-
-      /**
-       * Look at the feed, parse out the messages. Save any new messages.
-       * Remove any messages that aren't in the feed anymore.
-       **/
-      public void update() {
-         var message = new Message("GET", "https://mail.google.com/mail/feed/atom");
-         session.send_message(message);
-         if(message.status_code != 200) {
-            handle_error(message.status_code);
-            return;
-         }
-
-         var body = (string) message.response_body.data;
-
-         var messes = body.split("<entry>");
-
-         messes = messes[1:messes.length];
-
-         foreach(string s in messes) {
-
-            MatchInfo info = null;
-
-            midx.match(s, 0, out info);
-            var mid = info.fetch(1);
-
-            if(messages.has_key(mid)) {
-               messages2[mid] = messages[mid];
-               continue;
-            }
-
-            /**
-             * These regexes are defined as private static variables since they don't ever
-             * need to change. This way they are only generated once.
-             **/
-            authorx.match(s, 0, out info);
-            var author = info.fetch(1);
-
-            summaryx.match(s, 0, out info);
-            var summary = info.fetch(1);
-
-            titlex.match(s, 0, out info);
-            var subject = info.fetch(1);
-
-            timex.match(s, 0, out info);
-            var sub = info.fetch(1);
-            int year, month, day, hour, min, sec;
-            sub.scanf("%d-%d-%dT%d:%d:%d", out year, out month, out day,
-                                           out hour, out min, out sec);
-            var time = new DateTime.local(year, month, day, hour, min, sec);
-
-            var gm = new GMessage(author, subject, summary, mid, time);
-
-            messages2[mid] = gm;
-            new_message(gm);
-
-         }
-
-         /**
-          * Here we check for messages that we used to have but that aren't in the feed anymore.
-          * These were removed by an outside source.
-          **/
-         foreach(var k in messages.keys) {
-            if(!messages2.has_key(k)) {
-               message_removed(k);
-            }
-         }
-
-         var temp = messages;
-         messages = messages2;
-         messages2 = temp;
-
-         messages2.clear();
-
-         update_complete();
-      }
-
-      /**
-       * Methods for acting on messages.
-       * Handles the sending of the message and success or error handling afterwards
-       **/
-      public bool mark_read(string idx) {
-         if(messages.has_key(idx)) {
-            var mess = messages[idx].mark_read(gmail_at, gmail_ik);
-            session.send_message(mess);
-            if(mess.status_code != 200) {
-               handle_error(mess.status_code);
-            } else {
-               message_read(idx);
-               messages.unset(idx);
-               return true;
-            }
-         }
-         return false;
-      }
-
-      public bool toggle_important(string idx) {
-         if(messages.has_key(idx)) {
-            var m = messages[idx];
-            var mess = m.toggle_important(gmail_at, gmail_ik);
-            session.send_message(mess);
-            if(mess.status_code != 200) {
-               handle_error(mess.status_code);
-            } else if(m.important) {
-               message_important(idx);
-               return true;
-            } else {
-               message_unimportant(idx);
-               return true;
-            }
-         }
-         return false;
-      }
-
-      public bool toggle_starred(string idx) {
-         if(messages.has_key(idx)) {
-            var m = messages[idx];
-            var mess = m.toggle_starred(gmail_at, gmail_ik);
-            session.send_message(mess);
-            if(mess.status_code != 200) {
-               handle_error(mess.status_code);
-            } else if(m.starred) {
-               message_starred(idx);
-               return true;
-            } else {
-               message_unstarred(idx);
-               return true;
-            }
-         }
-         return false;
-      }
-
-      public bool archive(string idx) {
-         if(messages.has_key(idx)) {
-            var mess = messages[idx].archive(gmail_at, gmail_ik);
-            session.send_message(mess);
-            if(mess.status_code != 200) {
-               handle_error(mess.status_code);
-            } else {
-               message_archived(idx);
-               messages.unset(idx);
-               return true;
-            }
-         }
-         return false;
-      }
-
-      public bool trash(string idx) {
-         if(messages.has_key(idx)) {
-            var mess = messages[idx].trash(gmail_at, gmail_ik);
-            session.send_message(mess);
-            if(mess.status_code != 200) {
-               handle_error(mess.status_code);
-            } else {
-               message_trashed(idx);
-               messages.unset(idx);
-               return true;
-            }
-         }
-         return false;
-      }
-
-      public bool spam(string idx) {
-         if(messages.has_key(idx)) {
-            var mess = messages[idx].spam(gmail_at, gmail_ik);
-            session.send_message(mess);
-            if(mess.status_code != 200) {
-               handle_error(mess.status_code);
-            } else {
-               message_spammed(idx);
-               messages.unset(idx);
-               return true;
-            }
-         }
-         return false;
-      }
-
-      /**
-       * The methods above call this method so we can send an Error status based
-       * on the http status code we got.
-       **/
-      private void handle_error(uint code) {
-         if(code == 401) {
-            connection_error(ConnectionError.UNAUTHORIZED);
-         } else if(code < 100) {
-            connection_error(ConnectionError.DISCONNECTED);
-         } else {
-            connection_error(ConnectionError.UNKNOWN);
+               break;
          }
       }
 
-      public string to_string() {
-         var sb = new StringBuilder();
-         sb.append("Messages: %d\n\n".printf(messages.size));
-         foreach(var m in messages.values) {
-            sb.append(m.to_string());
-            sb.append("\n\n\n");
-         }
-         return sb.str;
+      this.summary = details.get_string_member("snippet");
+
+      var labelIds = details.get_array_member("labelIds");
+
+      this.labels.clear();
+
+      for(uint idx = 0; idx < labelIds.get_length(); idx++) {
+         this.labels.add(labelIds.get_string_element(idx));
       }
+
+      return true;
    }
 
-
-   /**
-    * GMessage tracks the state of a message while it is in our feed.
-    **/
-   public class GMessage : Object {
-      public string author {get; private set; default = "No Author";}
-      public string subject {get; private set; default = "No Subject";}
-      public string summary {get; private set; default = "";}
-      public string id {get; private set; default = "";}
-      public DateTime time {get; private set; default = new DateTime.now_local();}
-      public bool read {get; private set; default = false;}
-      public bool starred {get; private set; default = false;}
-      public bool important {get; private set; default = false;}
-
-      /**
-       * Construct a message from the relevant data.
-       **/
-      public GMessage(string author, string subject, string summary, string id, DateTime time) {
-         this.author = author;
-         this.subject = subject;
-         this.summary = summary;
-         this.id = id;
-         this.time = time;
+   public string to_string() {
+      var sb = new StringBuilder();
+      sb.append("Author:  ");
+      sb.append(this.author);
+      sb.append("\nSubject: ");
+      sb.append(this.subject);
+      sb.append("\nSummary: ");
+      sb.append(this.summary);
+      sb.append("\nStarred: ");
+      sb.append(this.starred ? "Yes" : "No");
+      sb.append("\nID: ");
+      sb.append(this.id);
+      sb.append("\nLabels: ");
+      foreach(string label in this.labels) {
+         sb.append("%s, ".printf(label));
       }
-
-      /**
-       * Copy constructor
-       **/
-      public GMessage.copy(GMessage other) {
-         this.author = other.author;
-         this.subject = other.subject;
-         this.summary = other.summary;
-         this.id = other.id;
-         this.time = other.time;
-
-         this.read = other.read;
-         this.starred = other.starred;
-         this.important = other.important;
-      }
-
-      public string to_string() {
-         var sb = new StringBuilder();
-         sb.append("Author:  ");
-         sb.append(this.author);
-         sb.append("\nSubject: ");
-         sb.append(this.subject);
-         sb.append("\nSummary: ");
-         sb.append(this.summary);
-         sb.append("\nStarred: ");
-         sb.append(this.starred ? "Yes" : "No");
-         sb.append("\nImportant: ");
-         sb.append(this.important ? "Yes" : "No");
-         sb.append("\nID: ");
-         sb.append(this.id);
-         return sb.str;
-      }
-
-      /**
-       * Comparable based on time received
-       **/
-      public int compare(GMessage other) {
-         return this.time.compare(other.time);
-      }
-
-      /**
-       * To act we need to send a post message with the proper action and
-       * gmail_at authentication parameters.
-       **/
-      private Message act(string action, string gmail_at, string gmail_ik) {
-         var message = new Message("POST",
-                                   "%s%s%s%s%s%s%s".printf("https://mail.google.com/mail/?ik=",
-                                                           gmail_ik,
-                                                           "&at=", gmail_at,
-                                                           "&view=up&act=", action,
-                                                           "&search=all"));
-
-         var m_body = "t=%s".printf(this.id);
-
-         message.set_request("application/x-www-form-urlencoded", MemoryUse.COPY, m_body.data);
-
-         return message;
-      }
-
-      // Read -> rd
-      // Star -> st
-      // Unstar -> xst
-      // Archive -> rc_%5Ei
-      // Delete -> tr
-      // Important -> mai
-      // Not Important -> mani
-      // Spam -> sp
-
-      /**
-       * These methods construct a proper Soup Message for completing the desired action.
-       * The feed can then send the message it receives from the call and act on the response
-       **/
-      internal Message mark_read(string gmail_at, string gmail_ik) {
-         this.read = true;
-         var url = "https://mail.google.com/mail/u/0/h/h?v=c&th=%s".printf(this.id);
-         var message = new Message("GET", url);
-
-         return message;
-      }
-
-      internal Message toggle_starred(string gmail_at, string gmail_ik) {
-         var mess = act(starred ? "xst" : "st", gmail_at, gmail_ik);
-         this.starred = !this.starred;
-         return mess;
-      }
-
-      internal Message toggle_important(string gmail_at, string gmail_ik) {
-         var mess = act(important ? "mani" : "mai", gmail_at, gmail_ik);
-         this.important = !this.important;
-         return mess;
-      }
-
-      internal Message archive(string gmail_at, string gmail_ik) {
-         return act("rc_%5Ei", gmail_at, gmail_ik);
-      }
-
-      internal Message trash(string gmail_at, string gmail_ik) {
-         return act("tr", gmail_at, gmail_ik);
-      }
-
-      internal Message spam(string gmail_at, string gmail_ik) {
-         return act("sp", gmail_at, gmail_ik);
-      }
+      return sb.str;
    }
+
+}
+
+DateTime? parseDate(string dateTime) {
+   //            "  Fri, 27      Jun     2014         22:     37:     25 -0500
+   var format = /^[^0-9]*([^ ]+) ([^ ]+) ([^ ]+) ([^:]+):([^:]+):([^ ]+) ([+-]?[0-9]{4})/;
+
+   MatchInfo info = null;
+
+   format.match(dateTime, 0, out info);
+
+   if(info.fetch(0) == null) {
+      return null;
+   }
+
+   int date         = int.parse(info.fetch(1));
+   string month_str = info.fetch(2);
+   int year         = int.parse(info.fetch(3));
+   int hour         = int.parse(info.fetch(4));
+   int minute       = int.parse(info.fetch(5));
+   int second       = int.parse(info.fetch(6));
+   string timezone  = info.fetch(7);
+
+   //{ Parse the month using Time to decode the month string.
+   //  Note: The time struct uses 0-based months. So add 1.
+   var time = Time();
+   time.strptime(month_str, "%b");
+   int month = time.month + 1;
+   //}
+
+   var tz = new TimeZone(timezone);
+
+   return new DateTime(tz, year, month, date, hour, minute, second);
+}
+
 }

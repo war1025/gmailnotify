@@ -2,7 +2,7 @@
 namespace GmailFeed {
 
    public delegate int MessageCountDelegate();
-   public delegate Gee.List<MailItem> MessageListDelegate();
+   public delegate Gee.List<MessageItem> MessageListDelegate();
    public delegate string AccountNameDelegate();
    public delegate void ShowMessagesDelegate();
 
@@ -56,9 +56,9 @@ namespace GmailFeed {
          for(int i = 0; i < mail_items.size; i++) {
             var mail_item = mail_items[i];
 
-            messages[i] = { mail_item.author,
-                            mail_item.subject,
-                            mail_item.summary};
+            messages[i] = { mail_item.msg.author,
+                            mail_item.msg.subject,
+                            mail_item.msg.summary};
          }
 
       }

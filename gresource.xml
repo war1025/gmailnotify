@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+   <gresource prefix="/org/wrowclif/gmailnotify">
+      <file compressed="true" preprocess="xml-stripblanks">ui/login_dialog.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">ui/oauth_dialog.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">ui/auth_code_dialog.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">ui/message_visual.ui</file>
+   </gresource>
+</gresources>
