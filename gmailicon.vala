@@ -346,6 +346,7 @@ namespace GmailFeed {
             try {
                var notification = new Notify.Notification(m.author, m.subject, MAIL_ICON);
                notification.set_hint("transient", true);
+               notification.add_action("default", "default", () => {});
                notification.show();
             } catch(Error e) {
                print("Error sending notification for new message: %s\n", e.message);
