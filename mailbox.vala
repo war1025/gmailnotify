@@ -8,13 +8,16 @@ namespace GmailFeed {
     * Actions on the messages are made through the mailbox.
     **/
    public class Mailbox : GLib.Object {
+      //{ Members
       /**
        * The list has the messages in sorted order.
        * the map allows for fast access of the desired message.
        **/
       private Gee.List<MessageItem> mail_list;
       private Gee.Map<string, MessageItem> messages;
+      //}
 
+      //{ Properties
       /**
        * Mailbox message count
        **/
@@ -32,6 +35,7 @@ namespace GmailFeed {
             return mail_list.read_only_view;
          }
       }
+      //}
 
       public Mailbox() {
          this.mail_list = new ArrayList<MessageItem>();
@@ -89,24 +93,13 @@ namespace GmailFeed {
 
    [GtkTemplate (ui = "/org/wrowclif/gmailnotify/ui/message_visual.ui")]
    public class MessageItem : Box {
+      //{ Static data
       public enum RemoveAction {
          NONE      = 0,
          MARK_READ = 1,
          ARCHIVE   = 2,
          SPAM      = 3,
          TRASH     = 4
-      }
-
-      public string id {
-         get {
-            return this.msg.id;
-         }
-      }
-
-      public DateTime time {
-         get {
-            return this.msg.time;
-         }
       }
 
       /**
@@ -140,7 +133,9 @@ namespace GmailFeed {
 
       private static const string activeTemplate =
          "<small><i><u><span foreground='darkred'>%s</span></u></i>%s</small>";
+      //}
 
+      //{ Template members
       [GtkChild]
       private Label subjectLbl;
 
@@ -164,13 +159,60 @@ namespace GmailFeed {
 
       [GtkChild]
       private Label trashLbl;
+      //}
 
-      public GMessage msg {get; private set;}
+      //{ Members
+
+      /**
+       * The controller that interacts with Gmail for us.
+       **/
       private FeedController feed;
 
+      /**
+       * The action we are currently performing, or RemoveAction.NONE if we haven't
+       * started an action yet.
+       **/
       private RemoveAction curAction;
+
+      /**
+       * Whether the user should be able to change the star state of the message currently.
+       **/
       private bool starEnabled;
+
+      /**
+       * Whether the message is starred or not. We update this variable to
+       * match the state of our internal `msg` when `updateMessage()` is called.
+       * Otherwise it tracks the current state of the star. We do not want to modify `msg`
+       * ourselves, which is why we have this variable.
+       **/
       private bool starred;
+      //}
+
+      //{ Properties
+
+      /**
+       * This message's id.
+       **/
+      public string id {
+         get {
+            return this.msg.id;
+         }
+      }
+
+      /**
+       * When this message was sent.
+       **/
+      public DateTime time {
+         get {
+            return this.msg.time;
+         }
+      }
+
+      /**
+       * All the details we know about the message.
+       **/
+      public GMessage msg {get; private set;}
+      //}
 
       public MessageItem(GMessage msg, FeedController feed) {
          this.curAction = RemoveAction.NONE;
@@ -183,6 +225,11 @@ namespace GmailFeed {
          this.feed.messageUnstarred.connect(this.onMessageUnstarred);
       }
 
+      /**
+       * Update the view to match the state of the message.
+       *
+       * @param msg: The message we are showing.
+       **/
       public void updateMessage(GMessage msg) {
          this.msg = msg;
 
@@ -194,13 +241,26 @@ namespace GmailFeed {
 
          this.summaryLbl.set_markup(this.msg.summary);
 
+         //{ Set the styling for the removal actions
          this.onMarkReadLeave();
          this.onArchiveLeave();
          this.onSpamLeave();
          this.onTrashLeave();
+         //}
       }
 
+      /**
+       * Called when the feed successfully stars a message.
+       *
+       * Note: This signal is sent in response to a request made by us.
+       *       If the star state is changed through the gmail website or
+       *       other means, we will get that update via an `updateMessage()` call.
+       *
+       * @param id: The id of the message that was starred.
+       **/
       private void onMessageStarred(string id) {
+         // We get this signal when any message is starred, so we
+         // need to check if if applies to this message before doing anything.
          if(id == this.msg.id) {
             this.starred     = true;
             this.starEnabled = true;
@@ -208,7 +268,18 @@ namespace GmailFeed {
          }
       }
 
+      /**
+       * Called when the feed successfully unstars a message.
+       *
+       * Note: This signal is sent in response to a request made by us.
+       *       If the star state is changed through the gmail website or
+       *       other means, we will get that update via an `updateMessage()` call.
+       *
+       * @param id: The id of the message that was starred.
+       **/
       private void onMessageUnstarred(string id) {
+         // We get this signal when any message is unstarred, so we
+         // need to check if if applies to this message before doing anything.
          if(id == this.msg.id) {
             this.starred     = false;
             this.starEnabled = true;
@@ -238,6 +309,10 @@ namespace GmailFeed {
       private bool onStarClicked() {
          if(this.starEnabled) {
             this.starEnabled = false;
+
+            // The feed distinguishes between starring and unstarring, but we
+            // use a single button for both. So we check our state to determine
+            // which call to make.
             if(this.starred) {
                feed.unstarMsg(this.msg.id);
             } else {
@@ -360,6 +435,14 @@ namespace GmailFeed {
       }
       //}
 
+      /**
+       * Called when we recover from a connection error of some sort.
+       * Resets the view so that it will respond to user interactions again.
+       *
+       * When we begin an action we freeze the message UI until that action completes.
+       * If the connection fails while we are trying to make the request, we need to get
+       * back into a state where we can retry.
+       **/
       public void resetActions() {
          this.curAction   = RemoveAction.NONE;
          this.starEnabled = true;
