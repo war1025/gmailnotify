@@ -434,31 +434,26 @@ public class Feed : Object {
    }
 
    public AuthError unstarMsg(string msgId) {
-      if(! this.messages.has_key(msgId)) {
-         return AuthError.UNKNOWN;
-      }
-
       return this.modify(msgId, {}, {"STARRED"}, (id) => {this.messageUnstarred(id);});
    }
 
    public AuthError starMsg(string msgId) {
-      if(! this.messages.has_key(msgId)) {
-         return AuthError.UNKNOWN;
-      }
-
       return this.modify(msgId, {"STARRED"}, {}, (id) => {this.messageStarred(id);});
    }
 
    public AuthError archive(string msgId) {
-      return this.modify(msgId, {"ARCHIVED"}, {"INBOX"}, (id) => {this.messageArchived(id);});
+      return this.modify(msgId, {"ARCHIVED"}, {"INBOX", "UNREAD"},
+                         (id) => {this.messageArchived(id);});
    }
 
    public AuthError trash(string msgId) {
-      return this.modify(msgId, {"TRASH"}, {"INBOX"}, (id) => {this.messageTrashed(id);});
+      return this.modify(msgId, {"TRASH"}, {"INBOX", "UNREAD"},
+                         (id) => {this.messageTrashed(id);});
    }
 
    public AuthError spam(string msgId) {
-      return this.modify(msgId, {"SPAM"}, {"INBOX"}, (id) => {this.messageSpammed(id);});
+      return this.modify(msgId, {"SPAM"}, {"INBOX", "UNREAD"},
+                         (id) => {this.messageSpammed(id);});
    }
 
    private AuthError modify(string msgId, string[] addLabels, string[] removeLabels,
