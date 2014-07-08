@@ -3,6 +3,9 @@ using Soup;
 
 namespace GmailFeed {
 
+/**
+ * Fields that we store using libsecret.
+ **/
 public class OAuthFields {
    public const string CLIENT_ID = "client_id";
    public const string CLIENT_SECRET = "client_secret";
@@ -11,6 +14,15 @@ public class OAuthFields {
    public const string REFRESH_TOKEN = "refresh_token";
 }
 
+/**
+ * Possible errors that feed actions can return.
+ *
+ * SUCCESS       : No Error.
+ * UNKNOWN       : Failed, likely due to a network error
+ * NEED_TOKEN    : The bearer token is invalid / needs to be refreshed
+ * INVALID_AUTH  : The refresh token is invalid
+ * NEED_OAUTH_ID : The OAuth info is missing or invalid.
+ **/
 public enum AuthError {
    SUCCESS,
    UNKNOWN,
@@ -22,6 +34,7 @@ public enum AuthError {
 public delegate AuthError AuthCodeDelegate(string authCode);
 
 public class Feed : Object {
+   //{ Signals
    public signal void newMessage(GMessage msg);
    public signal void updatedMessage(GMessage msg);
    public signal void messageStarred(string id);
@@ -54,11 +67,11 @@ public class Feed : Object {
     * @param result: The error that the update completed with.
     **/
    public signal void updateComplete(AuthError result);
+   //}
 
    private delegate void SuccessSignal(string msgId);
 
-   public string address {get; private set;}
-
+   //{ Members
    private string? clientId;
    private string? clientSecret;
    private string? redirectUri;
@@ -70,6 +83,10 @@ public class Feed : Object {
    private Secret.Schema schema;
 
    private Gee.Map<string, GMessage> messages;
+   //}
+
+   //{ Properties
+   public string address {get; private set;}
 
    public Gee.Collection<GMessage> inbox {
       owned get {
@@ -82,6 +99,7 @@ public class Feed : Object {
          return this.messages.size;
       }
    }
+   //}
 
    public Feed(string address) {
       this.address = address;
@@ -95,6 +113,9 @@ public class Feed : Object {
       this.messages = new Gee.HashMap<string, GMessage>();
    }
 
+   /**
+    * Load any stored info for this Feed's address out of libsecret
+    **/
    public void loadInfo() {
       this.bearerToken = Secret.password_lookup_sync(this.schema, null,
                                                      "address", this.address,
@@ -130,6 +151,9 @@ public class Feed : Object {
       this.session.timeout = 15;
    }
 
+   /**
+    * Set the OAuth information for this address.
+    **/
    public AuthError setOAuthInfo(string clientId, string clientSecret, string redirectUri) {
       var success = Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
                                                "%s client ID".printf(this.address),
@@ -164,9 +188,11 @@ public class Feed : Object {
       }
    }
 
+   /**
+    * Build the URL that the user should go to in order
+    * to authorize us to use the Gmail API.
+    **/
    public string? getAuthUrl() {
-      this.create_session();
-
       if(!this.hasOAuthId()) {
          return null;
       }
@@ -189,7 +215,13 @@ public class Feed : Object {
       return auth_uri.to_string(false);
    }
 
+   /**
+    * Set the authorization code that we got back from the AuthUrl.
+    * This allows us to retrieve a Bearer and Refresh token.
+    **/
    public AuthError setAuthCode(string authCode) {
+      this.create_session();
+
       var token_addr = "https://accounts.google.com/o/oauth2/token";
       var token_msg  = new Message("POST", token_addr);
 
@@ -251,6 +283,9 @@ public class Feed : Object {
       return AuthError.SUCCESS;
    }
 
+   /**
+    * Use our refresh token, if we have one, to retrieve a new bearer token.
+    **/
    public AuthError refreshBearerToken() {
       this.create_session();
 
@@ -311,6 +346,9 @@ public class Feed : Object {
       return AuthError.NEED_TOKEN;
    }
 
+   /**
+    * Attempt to update the feed, handling various error cases along the way if we can.
+    **/
    public AuthError update() {
       AuthError result;
 
@@ -343,6 +381,9 @@ public class Feed : Object {
       return result;
    }
 
+   /**
+    * Refresh our inbox so that it contains the current unread emails.
+    **/
    public AuthError refreshInbox() {
       if(!this.hasBearerToken()) {
          return AuthError.NEED_TOKEN;
@@ -429,6 +470,7 @@ public class Feed : Object {
       return AuthError.SUCCESS;
    }
 
+   //{ Message modifiers
    public AuthError markRead(string msgId) {
       return this.modify(msgId, {}, {"UNREAD"}, (id) => {this.messageRead(id);});
    }
@@ -510,6 +552,7 @@ public class Feed : Object {
       successSignal(msgId);
       return AuthError.SUCCESS;
    }
+   //}
 
    private string buildUrl(string end) {
       var base_addr = "https://www.googleapis.com/gmail/v1/users/me%s";
