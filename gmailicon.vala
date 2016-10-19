@@ -163,14 +163,12 @@ namespace GmailFeed {
       public void setupOAuthId() {
          oauthDialog.clientId     = "";
          oauthDialog.clientSecret = "";
-         oauthDialog.redirectUri  = "";
 
          var response = oauthDialog.run();
 
          if(response == OAuthDialog.Response.SAVE) {
             feed.setOAuthId(oauthDialog.clientId,
-                            oauthDialog.clientSecret,
-                            oauthDialog.redirectUri);
+                            oauthDialog.clientSecret);
             icon.set_tooltip_text("Setting credentials...");
          }
 
@@ -596,19 +594,11 @@ namespace GmailFeed {
          set { clientSecretEntry.text = value; }
       }
 
-      public string redirectUri {
-         get { return redirectUriEntry.text; }
-         set { redirectUriEntry.text = value; }
-      }
-
       [GtkChild]
       private Entry clientIdEntry;
 
       [GtkChild]
       private Entry clientSecretEntry;
-
-      [GtkChild]
-      private Entry redirectUriEntry;
 
       public OAuthDialog() {
 

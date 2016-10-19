@@ -9,7 +9,6 @@ namespace GmailFeed {
 public class OAuthFields {
    public const string CLIENT_ID = "client_id";
    public const string CLIENT_SECRET = "client_secret";
-   public const string REDIRECT_URI = "redirect_uri";
    public const string BEARER_TOKEN = "bearer_token";
    public const string REFRESH_TOKEN = "refresh_token";
 }
@@ -74,7 +73,6 @@ public class Feed : Object {
    //{ Members
    private string? clientId;
    private string? clientSecret;
-   private string? redirectUri;
 
    private string? bearerToken;
    private string? refreshToken;
@@ -132,10 +130,6 @@ public class Feed : Object {
       this.clientSecret = Secret.password_lookup_sync(this.schema, null,
                                                       "address", this.address,
                                                       "field", OAuthFields.CLIENT_SECRET);
-
-      this.redirectUri = Secret.password_lookup_sync(this.schema, null,
-                                                     "address", this.address,
-                                                     "field", OAuthFields.REDIRECT_URI);
    }
 
    public bool hasOAuthId() {
@@ -154,7 +148,7 @@ public class Feed : Object {
    /**
     * Set the OAuth information for this address.
     **/
-   public AuthError setOAuthInfo(string clientId, string clientSecret, string redirectUri) {
+   public AuthError setOAuthInfo(string clientId, string clientSecret) {
       var success = Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
                                                "%s client ID".printf(this.address),
                                                clientId, null,
@@ -167,22 +161,15 @@ public class Feed : Object {
                                             "address", this.address,
                                             "field", OAuthFields.CLIENT_SECRET);
 
-      success &= Secret.password_store_sync(this.schema, Secret.COLLECTION_DEFAULT,
-                                            "%s redirect_uri".printf(this.address),
-                                            redirectUri, null,
-                                            "address", this.address,
-                                            "field", OAuthFields.REDIRECT_URI);
 
       if(success) {
          this.clientId = clientId;
          this.clientSecret = clientSecret;
-         this.redirectUri = redirectUri;
 
          return AuthError.INVALID_AUTH;
       } else {
          this.clientId = null;
          this.clientSecret = null;
-         this.redirectUri = null;
 
          return AuthError.NEED_OAUTH_ID;
       }
@@ -203,7 +190,7 @@ public class Feed : Object {
 
       var query = new HashTable<string, string>(str_hash, str_equal);
 
-      query["redirect_uri"] = this.redirectUri;
+      query["redirect_uri"] = "urn:ietf:wg:oauth:2.0:oob";
       query["scope"] = scope;
       query["response_type"] = "code";
       query["client_id"] = this.clientId;
@@ -230,7 +217,7 @@ public class Feed : Object {
       query["code"] = authCode;
       query["client_id"] = this.clientId;
       query["client_secret"] = this.clientSecret;
-      query["redirect_uri"] = this.redirectUri;
+      query["redirect_uri"] = "urn:ietf:wg:oauth:2.0:oob";
       query["grant_type"] = "authorization_code";
       var data = Form.encode_hash(query);
 

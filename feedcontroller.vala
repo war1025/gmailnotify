@@ -32,7 +32,6 @@ namespace GmailFeed {
    internal class OAuthIdAction : FeedAction {
       public string clientId     {get; set; default = "";}
       public string clientSecret {get; set; default = "";}
-      public string redirectUri  {get; set; default = "";}
    }
 
    /**
@@ -114,8 +113,7 @@ namespace GmailFeed {
                case FeedActionType.SET_OAUTH_ID :
                   var id_act = data as OAuthIdAction;
                   var result = this.feed.setOAuthInfo(id_act.clientId,
-                                                      id_act.clientSecret,
-                                                      id_act.redirectUri);
+                                                      id_act.clientSecret);
                   this.wrapError(result);
                   break;
                case FeedActionType.AUTHORIZE :
@@ -284,11 +282,10 @@ namespace GmailFeed {
          this.pushAction(FeedActionType.LOGIN, address);
       }
 
-      public void setOAuthId(string clientId, string clientSecret, string redirectUri) {
+      public void setOAuthId(string clientId, string clientSecret) {
          var action = new OAuthIdAction();
          action.clientId     = clientId;
          action.clientSecret = clientSecret;
-         action.redirectUri  = redirectUri;
          action.action       = FeedActionType.SET_OAUTH_ID;
          queue.push(action);
       }
