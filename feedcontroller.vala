@@ -154,6 +154,11 @@ namespace GmailFeed {
          act.id = id;
          act.action = type;
          queue.push(act);
+
+         var queue_length = queue.length();
+         if (queue_length > 0) {
+            message("Current action queue length: %u", queue_length);
+         }
       }
 
 

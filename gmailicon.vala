@@ -436,7 +436,9 @@ namespace GmailFeed {
             if(timer_set) {
                Source.remove(timer_id);
             }
+            message("Setting mailbox refresh timeout");
             timer_id = Timeout.add_seconds(120, () => {
+               message("Updating mailbox after timeout: %s", this.loginDialog.address);
                feed.update();
                return true;
             });
@@ -452,6 +454,7 @@ namespace GmailFeed {
             icon.set_from_file(ERROR_ICON);
             icon.set_tooltip_text("Connection Error...");
             if(error != AuthError.UNKNOWN && timer_set) {
+               warning("Mailbox refresh timeout cancelled after error: %d", error);
                Source.remove(timer_id);
                timer_set = false;
             } else if(error == AuthError.UNKNOWN) {

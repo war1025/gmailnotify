@@ -274,6 +274,7 @@ public class Feed : Object {
     * Use our refresh token, if we have one, to retrieve a new bearer token.
     **/
    public AuthError refreshBearerToken() {
+      message("Refreshing Bearer Token");
       this.create_session();
 
       if(!this.hasOAuthId()) {
@@ -314,6 +315,7 @@ public class Feed : Object {
                                     "address", this.address,
                                     "field", OAuthFields.BEARER_TOKEN);
 
+         message("Bearer Token Refreshed");
          return AuthError.SUCCESS;
       } else if(token_msg.status_code == 401) {
          Secret.password_clear_sync(this.schema, null,
@@ -327,9 +329,11 @@ public class Feed : Object {
          this.bearerToken  = null;
          this.refreshToken = null;
 
+         message("Bearer refresh token invalid");
          return AuthError.INVALID_AUTH;
       }
 
+      message("Failed to refresh Bearer Token");
       return AuthError.NEED_TOKEN;
    }
 
@@ -337,10 +341,12 @@ public class Feed : Object {
     * Attempt to update the feed, handling various error cases along the way if we can.
     **/
    public AuthError update() {
+      message("Updating mail feed");
       AuthError result;
 
       if(!this.hasOAuthId()) {
          this.updateComplete(AuthError.NEED_OAUTH_ID);
+         message("Missing OAuth ID");
          return AuthError.NEED_OAUTH_ID;
       }
 
@@ -355,12 +361,14 @@ public class Feed : Object {
       result = this.refreshInbox();
 
       if(result == AuthError.NEED_TOKEN) {
+         message("Failed to refresh inbox. Refreshing bearer token");
          result = this.refreshBearerToken();
          if(result != AuthError.SUCCESS) {
             this.updateComplete(result);
             return result;
          }
 
+         message("Attempting to refresh inbox with new bearer token");
          result = this.refreshInbox();
       }
 
@@ -383,6 +391,7 @@ public class Feed : Object {
             this.bearerToken = null;
             return AuthError.NEED_TOKEN;
          }
+         error("Unknown error: %u", inbox_msg.status_code);
          return AuthError.UNKNOWN;
       }
 
@@ -420,6 +429,12 @@ public class Feed : Object {
       to_update.add_all(current_msgs);
       to_update.retain_all(new_msgs);
 
+      message("Refreshing Inbox -- Added: %u. Removed: %u. Updated: %u",
+         to_add.size,
+         to_remove.size,
+         to_update.size
+      );
+
       foreach(string msg_id in to_remove) {
          this.messages.unset(msg_id);
          this.messageRemoved(msg_id);
@@ -437,6 +452,8 @@ public class Feed : Object {
                this.messages[msg_id] = msg;
                this.newMessage(msg);
             }
+         } else {
+            error("Failed to retrieve added message: %u", request.status_code);
          }
       }
 
@@ -450,6 +467,8 @@ public class Feed : Object {
             if(success) {
                this.updatedMessage(msg);
             }
+         } else {
+            error("Failed to retrieve updated message: %u", request.status_code);
          }
       }
 
@@ -459,28 +478,34 @@ public class Feed : Object {
 
    //{ Message modifiers
    public AuthError markRead(string msgId) {
+      message("Marking message read: %s", msgId);
       return this.modify(msgId, {}, {"UNREAD"}, (id) => {this.messageRead(id);});
    }
 
    public AuthError unstarMsg(string msgId) {
+      message("Unstarring message: %s", msgId);
       return this.modify(msgId, {}, {"STARRED"}, (id) => {this.messageUnstarred(id);});
    }
 
    public AuthError starMsg(string msgId) {
+      message("Starring message: %s", msgId);
       return this.modify(msgId, {"STARRED"}, {}, (id) => {this.messageStarred(id);});
    }
 
    public AuthError archive(string msgId) {
+      message("Archiving message: %s", msgId);
       return this.modify(msgId, {"ARCHIVED"}, {"INBOX", "UNREAD"},
                          (id) => {this.messageArchived(id);});
    }
 
    public AuthError trash(string msgId) {
+      message("Trashing message: %s", msgId);
       return this.modify(msgId, {"TRASH"}, {"INBOX", "UNREAD"},
                          (id) => {this.messageTrashed(id);});
    }
 
    public AuthError spam(string msgId) {
+      message("Spamming message: %s", msgId);
       return this.modify(msgId, {"SPAM"}, {"INBOX", "UNREAD"},
                          (id) => {this.messageSpammed(id);});
    }
