@@ -391,7 +391,7 @@ public class Feed : Object {
             this.bearerToken = null;
             return AuthError.NEED_TOKEN;
          }
-         error("Unknown error: %u", inbox_msg.status_code);
+         warning("Unknown error: %u", inbox_msg.status_code);
          return AuthError.UNKNOWN;
       }
 
@@ -453,7 +453,7 @@ public class Feed : Object {
                this.newMessage(msg);
             }
          } else {
-            error("Failed to retrieve added message: %u", request.status_code);
+            warning("Failed to retrieve added message: %u", request.status_code);
          }
       }
 
@@ -468,7 +468,7 @@ public class Feed : Object {
                this.updatedMessage(msg);
             }
          } else {
-            error("Failed to retrieve updated message: %u", request.status_code);
+            warning("Failed to retrieve updated message: %u", request.status_code);
          }
       }
 
