@@ -333,7 +333,10 @@ public class Feed : Object {
          return AuthError.INVALID_AUTH;
       }
 
-      message("Failed to refresh Bearer Token");
+      message("Failed to refresh Bearer Token. %u\n%s",
+         token_msg.status_code,
+         (string) token_msg.response_body.data
+      );
       return AuthError.NEED_TOKEN;
    }
 
