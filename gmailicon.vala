@@ -621,6 +621,7 @@ namespace GmailFeed {
    }
 
    void main(string[] args) {
+      X.init_threads();
       Gtk.init(ref args);
       Notify.init("gmail-notify");
 
