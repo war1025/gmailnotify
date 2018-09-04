@@ -387,7 +387,7 @@ public class Feed : Object {
          return AuthError.NEED_TOKEN;
       }
 
-      var inbox_msg = this.getUrl("/messages?labelIds=INBOX&q=is:unread");
+      var inbox_msg = this.getUrl("/messages?labelIds=INBOX&q=is:unread&maxResults=20");
 
       if(inbox_msg.status_code != 200) {
          if(inbox_msg.status_code == 401) {
