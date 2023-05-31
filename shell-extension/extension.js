@@ -86,7 +86,6 @@ const GmailNotifyButton = new Lang.Class({
 
    setIcon: function(iconName) {
       this.icon.icon_name = iconName;
-      this.emit("icons-changed");
    },
 
    _onMessagesChanged: function() {

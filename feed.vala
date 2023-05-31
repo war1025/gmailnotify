@@ -226,7 +226,7 @@ public class Feed : Object {
       session.send_message(token_msg);
 
       if(token_msg.status_code != 200) {
-         if(token_msg.status_code == 401) {
+         if(token_msg.status_code >= 400) {
             Secret.password_clear_sync(this.schema, null,
                                        "address", this.address,
                                        "field", OAuthFields.BEARER_TOKEN);
@@ -317,7 +317,7 @@ public class Feed : Object {
 
          message("Bearer Token Refreshed");
          return AuthError.SUCCESS;
-      } else if(token_msg.status_code == 401) {
+      } else if(token_msg.status_code >= 400) {
          Secret.password_clear_sync(this.schema, null,
                                     "address", this.address,
                                     "field", OAuthFields.BEARER_TOKEN);
@@ -383,7 +383,11 @@ public class Feed : Object {
     * Refresh our inbox so that it contains the current unread emails.
     **/
    public AuthError refreshInbox() {
-      if(!this.hasBearerToken()) {
+      if(!this.hasOAuthId()) {
+         return AuthError.NEED_OAUTH_ID;
+      } else if(this.refreshToken == null) {
+         return AuthError.INVALID_AUTH;
+      } else if(!this.hasBearerToken()) {
          return AuthError.NEED_TOKEN;
       }
 
